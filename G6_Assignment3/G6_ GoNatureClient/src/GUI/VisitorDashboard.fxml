@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns:fx="http://javafx.com/fxml"
+      fx:controller="GUI.VisitorDashboardController"
+      spacing="16" alignment="CENTER"
+      style="-fx-background-color: #2d5a27; -fx-padding: 40;"
+      prefWidth="420" prefHeight="420">
+
+    <Label text="🌿 GoNature"
+           style="-fx-font-size: 24; -fx-font-weight: bold; -fx-text-fill: #f5f0e8;"/>
+    <Label text="Visitor Dashboard"
+           style="-fx-font-size: 13; -fx-text-fill: #c8e6c9;"/>
+    <Label fx:id="lblWelcome" text="Welcome"
+           style="-fx-font-size: 14; -fx-font-weight: bold; -fx-text-fill: #f0c040;"/>
+
+    <Button text="📅 Make Reservation" onAction="#makeReservation"
+            style="-fx-background-color: #6d4c1f; -fx-text-fill: white; -fx-font-size: 13;
+                   -fx-font-weight: bold; -fx-border-radius: 5; -fx-background-radius: 5;
+                   -fx-padding: 10 30 10 30; -fx-cursor: hand;" prefWidth="260"/>
+
+    <Button text="📋 My Reservations" onAction="#myReservations"
+            style="-fx-background-color: #6d4c1f; -fx-text-fill: white; -fx-font-size: 13;
+                   -fx-font-weight: bold; -fx-border-radius: 5; -fx-background-radius: 5;
+                   -fx-padding: 10 30 10 30; -fx-cursor: hand;" prefWidth="260"/>
+
+    <Button text="🔓 Logout" onAction="#logout"
+            style="-fx-background-color: #8b3a3a; -fx-text-fill: white; -fx-font-size: 12;
+                   -fx-border-radius: 5; -fx-background-radius: 5;
+                   -fx-padding: 8 20 8 20; -fx-cursor: hand;" prefWidth="260"/>
+
+    <Button text="Exit" onAction="#exit"
+            style="-fx-background-color: #1b3a17; -fx-text-fill: white; -fx-font-size: 12;
+                   -fx-border-radius: 5; -fx-background-radius: 5;
+                   -fx-padding: 8 20 8 20; -fx-cursor: hand;" prefWidth="260"/>
+</VBox>

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns:fx="http://javafx.com/fxml"
+      fx:controller="GUI.DashboardController"
+      spacing="20" alignment="CENTER"
+      style="-fx-background-color: #2d5a27;"
+      prefWidth="400" prefHeight="400">
+
+    <Label text="🌿 GoNature"
+           style="-fx-font-size: 28; -fx-font-weight: bold; -fx-text-fill: #f5f0e8;"/>
+
+    <Label text="Welcome — choose an action"
+           style="-fx-font-size: 13; -fx-text-fill: #c8e6c9;"/>
+
+    <Button text="📋 View / Update Orders" onAction="#openOrderView"
+            style="-fx-background-color: #6d4c1f; -fx-text-fill: white;
+                   -fx-font-size: 13; -fx-font-weight: bold;
+                   -fx-border-radius: 5; -fx-background-radius: 5;
+                   -fx-padding: 10 30 10 30; -fx-cursor: hand;"
+            prefWidth="220"/>
+
+    <Button text="🔓 Logout" onAction="#logout"
+            style="-fx-background-color: #8b3a3a; -fx-text-fill: white;
+                   -fx-font-size: 12; -fx-border-radius: 5; -fx-background-radius: 5;
+                   -fx-padding: 8 20 8 20; -fx-cursor: hand;"
+            prefWidth="220"/>
+
+    <Button text="Exit" onAction="#exit"
+            style="-fx-background-color: #1b3a17; -fx-text-fill: white;
+                   -fx-font-size: 12; -fx-border-radius: 5; -fx-background-radius: 5;
+                   -fx-padding: 8 20 8 20; -fx-cursor: hand;"
+            prefWidth="220"/>
+
+</VBox>

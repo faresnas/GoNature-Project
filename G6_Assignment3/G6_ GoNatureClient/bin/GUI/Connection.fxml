@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns:fx="http://javafx.com/fxml"
+      fx:controller="GUI.ConnectionController"
+      spacing="12" alignment="CENTER"
+      style="-fx-background-color: #2d5a27; -fx-padding: 40;"
+      prefWidth="400" prefHeight="620">
+
+    <fx:define>
+        <ToggleGroup fx:id="loginTypeGroup"/>
+    </fx:define>
+
+    <Label text="🌿 GoNature"
+           style="-fx-font-size: 26; -fx-font-weight: bold; -fx-text-fill: #f5f0e8;"/>
+    <Label text="Connect &amp; Sign In"
+           style="-fx-font-size: 13; -fx-text-fill: #c8e6c9;"/>
+
+    <VBox spacing="4" maxWidth="280">
+        <Label text="IP Address:" style="-fx-text-fill: #f5f0e8; -fx-font-size: 13;"/>
+        <TextField fx:id="txtIP" promptText="e.g. localhost"
+                   style="-fx-background-color: #f5f0e8; -fx-border-color: #6d4c1f;
+                          -fx-border-width: 2; -fx-border-radius: 5; -fx-background-radius: 5;
+                          -fx-font-size: 13; -fx-padding: 8;"/>
+    </VBox>
+
+    <VBox spacing="4" maxWidth="280">
+        <Label text="Port:" style="-fx-text-fill: #f5f0e8; -fx-font-size: 13;"/>
+        <TextField fx:id="txtPort" promptText="e.g. 5555"
+                   style="-fx-background-color: #f5f0e8; -fx-border-color: #6d4c1f;
+                          -fx-border-width: 2; -fx-border-radius: 5; -fx-background-radius: 5;
+                          -fx-font-size: 13; -fx-padding: 8;"/>
+    </VBox>
+
+    <HBox spacing="16" alignment="CENTER">
+        <RadioButton fx:id="rbEmployee" text="Employee"
+                     toggleGroup="$loginTypeGroup" selected="true"
+                     onAction="#onToggleChanged"
+                     style="-fx-text-fill: #f5f0e8;"/>
+        <RadioButton fx:id="rbGuide" text="Guide"
+                     toggleGroup="$loginTypeGroup"
+                     onAction="#onToggleChanged"
+                     style="-fx-text-fill: #f5f0e8;"/>
+        <RadioButton fx:id="rbVisitor" text="Visitor"
+                     toggleGroup="$loginTypeGroup"
+                     onAction="#onToggleChanged"
+                     style="-fx-text-fill: #f5f0e8;"/>
+    </HBox>
+
+    <!-- Role dropdown — only visible for Employee -->
+    <VBox fx:id="roleRow" spacing="4" maxWidth="280">
+        <Label text="Role:" style="-fx-text-fill: #f5f0e8; -fx-font-size: 13;"/>
+        <ComboBox fx:id="cbRole" maxWidth="280"
+                  style="-fx-background-color: #f5f0e8; -fx-border-color: #6d4c1f;
+                         -fx-border-width: 2; -fx-border-radius: 5; -fx-background-radius: 5;
+                         -fx-font-size: 13;"/>
+    </VBox>
+
+    <VBox fx:id="usernameRow" spacing="4" maxWidth="280">
+        <Label text="Username:" style="-fx-text-fill: #f5f0e8; -fx-font-size: 13;"/>
+        <TextField fx:id="tfUsername" promptText="Enter username"
+                   style="-fx-background-color: #f5f0e8; -fx-border-color: #6d4c1f;
+                          -fx-border-width: 2; -fx-border-radius: 5; -fx-background-radius: 5;
+                          -fx-font-size: 13; -fx-padding: 8;"/>
+    </VBox>
+
+    <VBox fx:id="passwordRow" spacing="4" maxWidth="280">
+        <Label text="Password:" style="-fx-text-fill: #f5f0e8; -fx-font-size: 13;"/>
+        <PasswordField fx:id="pfPassword" promptText="Enter password"
+                       style="-fx-background-color: #f5f0e8; -fx-border-color: #6d4c1f;
+                              -fx-border-width: 2; -fx-border-radius: 5; -fx-background-radius: 5;
+                              -fx-font-size: 13; -fx-padding: 8;"/>
+    </VBox>
+
+    <VBox fx:id="idRow" spacing="4" maxWidth="280" visible="false" managed="false">
+        <Label text="ID Number:" style="-fx-text-fill: #f5f0e8; -fx-font-size: 13;"/>
+        <TextField fx:id="tfIdNumber" promptText="Enter your ID number"
+                   style="-fx-background-color: #f5f0e8; -fx-border-color: #6d4c1f;
+                          -fx-border-width: 2; -fx-border-radius: 5; -fx-background-radius: 5;
+                          -fx-font-size: 13; -fx-padding: 8;"/>
+    </VBox>
+
+    <Label fx:id="errorLabel" text=""
+           style="-fx-text-fill: #ffcdd2; -fx-font-size: 12;"/>
+
+    <Button fx:id="btnConnect" text="Connect &amp; Login" onAction="#connectToServer"
+            style="-fx-background-color: #6d4c1f; -fx-text-fill: white;
+                   -fx-font-size: 14; -fx-font-weight: bold;
+                   -fx-border-radius: 5; -fx-background-radius: 5;
+                   -fx-padding: 8 30 8 30; -fx-cursor: hand;"
+            maxWidth="280"/>
+
+    <Button text="Exit" onAction="#exit"
+            style="-fx-background-color: #1b3a17; -fx-text-fill: #c8e6c9;
+                   -fx-font-size: 13; -fx-border-radius: 5; -fx-background-radius: 5;
+                   -fx-padding: 6 30 6 30; -fx-cursor: hand;"
+            maxWidth="280"/>
+
+</VBox>
