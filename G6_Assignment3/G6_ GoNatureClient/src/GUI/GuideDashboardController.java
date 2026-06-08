@@ -16,8 +16,40 @@ public class GuideDashboardController {
         }
     }
 
-    @FXML void makeReservation(ActionEvent event) { /* TODO: F2 — make group reservation */ }
-    @FXML void myReservations(ActionEvent event)  { /* TODO: F2 — view my reservations */ }
+    @FXML
+   public void makeReservation(ActionEvent event) {
+        try {
+            javafx.fxml.FXMLLoader loader =
+                new javafx.fxml.FXMLLoader(getClass().getResource("/GUI/Reservation.fxml"));
+
+            javafx.scene.Scene scene = new javafx.scene.Scene(loader.load());
+
+            ClientUI.primaryStage.setTitle("GoNature — Make Reservation");
+            ClientUI.primaryStage.setScene(scene);
+
+        } catch (Exception e) {
+            System.out.println("Failed to open reservation screen.");
+            e.printStackTrace();
+        }
+    }
+    
+    @FXML
+    public void myReservations(ActionEvent event) {
+        try {
+            javafx.fxml.FXMLLoader loader =
+                new javafx.fxml.FXMLLoader(getClass().getResource("/GUI/MyReservations.fxml"));
+
+            javafx.scene.Scene scene = new javafx.scene.Scene(loader.load());
+
+            ClientUI.primaryStage.setTitle("GoNature — My Reservations");
+            ClientUI.primaryStage.setScene(scene);
+
+        } catch (Exception e) {
+            System.out.println("Failed to open my reservations screen.");
+            e.printStackTrace();
+        }
+    }
+    
     @FXML void logout(ActionEvent event)          { LogoutHelper.logout(); }
     @FXML void exit(ActionEvent event) {
         if (ClientUI.client != null) ClientUI.client.disconnect();

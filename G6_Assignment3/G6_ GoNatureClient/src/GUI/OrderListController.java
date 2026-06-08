@@ -2,87 +2,138 @@ package GUI;
 
 import Client.ClientUI;
 import data.Order;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
-import javafx.fxml.FXMLLoader;
-import javafx.scene.Scene;
+import javafx.scene.control.Alert;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
-import java.sql.Date;
+
 import java.util.ArrayList;
 
 public class OrderListController {
 
     @FXML
-    private TextArea displayArea;
+    private TableView<ArrayList<String>> ordersTable;
+
     @FXML
-    private TextField orderIdField;
+    private TableColumn<ArrayList<String>, String> idCol;
+
+    @FXML
+    private TableColumn<ArrayList<String>, String> dateCol;
+
+    @FXML
+    private TableColumn<ArrayList<String>, String> visitorsCol;
+
+    @FXML
+    private TextField orderNumField;
+
     @FXML
     private TextField visitDateField;
+
     @FXML
     private TextField visitorCountField;
 
     @FXML
+    private TextArea displayArea;
+
+    private ObservableList<ArrayList<String>> tableData = FXCollections.observableArrayList();
+
+    @FXML
+    public void initialize() {
+        // קישור הבקר הנוכחי ל-UI הגלובלי כדי שהלקוח יוכל לגשת אליו
+        ClientUI.orderListController = this;
+
+        if (idCol != null && dateCol != null && visitorsCol != null) {
+            idCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().get(0)));
+            dateCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().get(1)));
+            visitorsCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().get(2)));
+        }
+
+        // האזנה לבחירת שורה בטבלה למילוי שדות העריכה במידה וקיימים
+        if (ordersTable != null) {
+            ordersTable.getSelectionModel().selectedItemProperty().addListener((obs, oldSel, newSel) -> {
+                if (newSel != null && orderNumField != null) {
+                    orderNumField.setText(newSel.get(0));
+                    visitDateField.setText(newSel.get(1));
+                    visitorCountField.setText(newSel.get(2));
+                }
+            });
+        }
+    }
+
+    @FXML
     public void fetchOrders(ActionEvent event) {
-        displayArea.setText("Loading orders...");
-        ClientUI.client.requestOrders();
+        if (displayArea != null) {
+            displayArea.setText("Loading orders...");
+        }
+        // תיקון שורה 28 - קריאה לשם המתודה המעודכן ב-OrderClient
+        ClientUI.client.requestAllOrders();
     }
 
     @FXML
     public void submitUpdate(ActionEvent event) {
         try {
-            int orderNum = Integer.parseInt(orderIdField.getText());
-            Date visitDate = Date.valueOf(visitDateField.getText());
+            if (orderNumField == null || orderNumField.getText().isEmpty()) {
+                if (displayArea != null) displayArea.setText("Please select or enter an order number.");
+                return;
+            }
+
+            int orderNum = Integer.parseInt(orderNumField.getText());
+            String visitDate = visitDateField.getText();
             int visitorCount = Integer.parseInt(visitorCountField.getText());
+
             Order o = new Order();
             o.setOrderNumber(orderNum);
-            o.setOrderDate(visitDate);
+            o.setOrderDate(java.sql.Date.valueOf(visitDate));
             o.setNumberOfVisitors(visitorCount);
-            displayArea.setText("Updating order...");
+
+            if (displayArea != null) {
+                displayArea.setText("Updating order " + orderNum + "...");
+            }
             ClientUI.client.sendOrderUpdate(o);
+
         } catch (Exception e) {
-            displayArea.setText("Something went wrong — check your input and try again");
-        }
-    }
-
-    public void showOrders(ArrayList<ArrayList<String>> rows) {
-        displayArea.clear();
-        for (ArrayList<String> row : rows) {
-            displayArea.appendText(formatRow(row));
-        }
-    }
-
-    private String formatRow(ArrayList<String> row) {
-        return "Order #" + row.get(0) +
-               " | Date: " + row.get(1) +
-               " | Visitors: " + row.get(2) +
-               " | Confirmation: " + row.get(3) +
-               " | Subscriber: " + row.get(4) +
-               " | Placed: " + row.get(5) + "\n";
-    }
-
-    public void showSuccess(String message) {
-        displayArea.setText(message);
-    }
-
-    @FXML
-    void goBack(ActionEvent event) {
-        try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/GUI/Dashboard.fxml"));
-            Scene scene = new Scene(loader.load());
-            ClientUI.primaryStage.setTitle("GoNature — Dashboard");
-            ClientUI.primaryStage.setScene(scene);
-        } catch (Exception e) {
-            System.out.println("OrderListController: failed to go back.");
+            if (displayArea != null) {
+                displayArea.setText("Error updating order: " + e.getMessage());
+            }
             e.printStackTrace();
         }
     }
 
-    @FXML
-    void exit(ActionEvent event) {
-        if (ClientUI.client != null) {
-            ClientUI.client.disconnect();
+    // מתודה המופעלת על ידי הלקוח לקבלת רשימת ההזמנות הגנריות מהשרת
+    public void showOrders(ArrayList<ArrayList<String>> orders) {
+        if (ordersTable != null) {
+            tableData.clear();
+            tableData.addAll(orders);
+            ordersTable.setItems(tableData);
         }
-        System.exit(0);
+        if (displayArea != null) {
+            StringBuilder sb = new StringBuilder("Orders Loaded Successfully:\n");
+            for (ArrayList<String> row : orders) {
+                sb.append("Order #").append(row.get(0))
+                  .append(" | Date: ").append(row.get(1))
+                  .append(" | Visitors: ").append(row.get(2)).append("\n");
+            }
+            displayArea.setText(sb.toString());
+        }
+    }
+
+    public void showSuccess(String message) {
+        if (displayArea != null) {
+            displayArea.setText(message);
+        }
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Action Status");
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
+        
+        // טעינה מחדש של הנתונים כדי להציג את השינוי בטבלה
+        ClientUI.client.requestAllOrders();
     }
 }
