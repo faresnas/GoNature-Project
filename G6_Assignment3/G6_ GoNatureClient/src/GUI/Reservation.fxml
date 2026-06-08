@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.geometry.Insets?>
+
+<VBox xmlns="http://javafx.com/javafx/21"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="GUI.ReservationController"
+      alignment="CENTER"
+      spacing="14"
+      prefWidth="520"
+      prefHeight="560"
+      style="-fx-background-color: #2d5a27; -fx-padding: 40;">
+
+    <Label text="🌿 GoNature"
+           style="-fx-font-size: 26; -fx-font-weight: bold; -fx-text-fill: #f5f0e8;" />
+
+    <Label text="Make Reservation"
+           style="-fx-font-size: 16; -fx-text-fill: #c8e6c9;" />
+
+    <VBox spacing="10" maxWidth="330">
+
+        <Label text="Park ID:" style="-fx-text-fill: #f5f0e8;" />
+        <ComboBox fx:id="parkBox"
+                  prefWidth="330"
+                  style="-fx-background-color: #f5f0e8;" />
+
+        <Label text="Visit Date:" style="-fx-text-fill: #f5f0e8;" />
+        <TextField fx:id="dateField"
+                   promptText="yyyy-mm-dd"
+                   style="-fx-background-color: #f5f0e8;" />
+
+        <Label text="Entry Time:" style="-fx-text-fill: #f5f0e8;" />
+        <TextField fx:id="timeField"
+                   promptText="HH:mm:ss"
+                   style="-fx-background-color: #f5f0e8;" />
+
+        <Label text="Visitors:" style="-fx-text-fill: #f5f0e8;" />
+        <TextField fx:id="visitorsField"
+                   promptText="Number of visitors"
+                   style="-fx-background-color: #f5f0e8;" />
+
+        <Label text="Email:" style="-fx-text-fill: #f5f0e8;" />
+        <TextField fx:id="emailField"
+                   promptText="email@example.com"
+                   style="-fx-background-color: #f5f0e8;" />
+    </VBox>
+
+    <HBox spacing="15" alignment="CENTER">
+        <Button text="Submit"
+                onAction="#submitReservation"
+                prefWidth="150"
+                style="-fx-background-color: #8b5a1e; -fx-text-fill: white; -fx-font-weight: bold;" />
+
+        <Button text="Back"
+                onAction="#goBack"
+                prefWidth="150"
+                style="-fx-background-color: #1b3a17; -fx-text-fill: white;" />
+    </HBox>
+
+</VBox>

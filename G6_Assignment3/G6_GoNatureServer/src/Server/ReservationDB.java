@@ -1,0 +1,213 @@
+package Server;
+
+import data.Reservation;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.UUID;
+
+public class ReservationDB {
+
+    private DBController dbController;
+
+    public ReservationDB(DBController dbController) {
+        this.dbController = dbController;
+    }
+
+    private String generateConfirmationCode() {
+        return "RES-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+    }
+
+    private boolean isParkAvailable(Connection conn, int parkId, java.sql.Date visitDate, java.sql.Time startTime, int numVisitors, int excludeReservationId) throws SQLException {
+        // התאמה לשם העמודה prebooked_reserved מה-DB שלך
+        String parkSql = "SELECT max_capacity, prebooked_reserved, avg_stay_hours FROM parks WHERE id = ?";
+        PreparedStatement parkPs = conn.prepareStatement(parkSql);
+        parkPs.setInt(1, parkId);
+        ResultSet parkRs = parkPs.executeQuery();
+        
+        if (!parkRs.next()) {
+            parkRs.close();
+            parkPs.close();
+            return false;
+        }
+        
+        int maxCapacity = parkRs.getInt("max_capacity");
+        int prebookedReserved = parkRs.getInt("prebooked_reserved");
+        double avgStayDouble = parkRs.getDouble("avg_stay_hours");
+        int avgStay = (avgStayDouble <= 0) ? 4 : (int) avgStayDouble;
+        
+        // הנוסחה: המכסה המותרת להזמנות מראש
+        int allowedQuota = maxCapacity - prebookedReserved;
+        parkRs.close();
+        parkPs.close();
+
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        cal.setTime(startTime);
+        cal.add(java.util.Calendar.HOUR_OF_DAY, avgStay);
+        java.sql.Time endTime = new java.sql.Time(cal.getTimeInMillis());
+
+        String checkSql = "SELECT SUM(num_visitors) FROM reservations " +
+                          "WHERE park_id = ? AND visit_date = ? AND status = 'CONFIRMED' AND id != ? " +
+                          "AND ((entry_time <= ? AND entry_time < ?) OR (entry_time >= ? AND entry_time < ?))";
+        
+        PreparedStatement checkPs = conn.prepareStatement(checkSql);
+        checkPs.setInt(1, parkId);
+        checkPs.setDate(2, visitDate);
+        checkPs.setInt(3, excludeReservationId);
+        checkPs.setTime(4, startTime);
+        checkPs.setTime(5, endTime); 
+        checkPs.setTime(6, startTime);
+        checkPs.setTime(7, endTime);
+        
+        ResultSet checkRs = checkPs.executeQuery();
+        int currentBookedVisitors = 0;
+        if (checkRs.next()) {
+            currentBookedVisitors = checkRs.getInt(1);
+        }
+        checkRs.close();
+        checkPs.close();
+
+        return (currentBookedVisitors + numVisitors) <= allowedQuota;
+    }
+
+    private double calculatePrice(Connection conn, Reservation r) throws SQLException {
+        String sql = "SELECT full_price FROM parks WHERE id = ?";
+        PreparedStatement ps = conn.prepareStatement(sql);
+        ps.setInt(1, r.getParkId());
+        ResultSet rs = ps.executeQuery();
+        double fullPrice = 40.0; 
+        if (rs.next()) {
+            fullPrice = rs.getDouble("full_price");
+        }
+        rs.close();
+        ps.close();
+
+        double totalPrice = 0;
+        int visitors = r.getNumVisitors();
+
+        if ("GROUP".equals(r.getType())) {
+            int payingVisitors = Math.max(0, visitors - 1);
+            double pricePerPerson = fullPrice * 0.75;
+            
+            if (r.isPrepaid()) {
+                pricePerPerson = pricePerPerson * 0.88;
+            }
+            totalPrice = payingVisitors * pricePerPerson;
+        } else {
+            double pricePerPerson = fullPrice * 0.85;
+            
+            if ("SUBSCRIBER".equals(r.getTravelerType())) {
+                pricePerPerson = pricePerPerson * 0.90;
+            }
+            totalPrice = visitors * pricePerPerson;
+        }
+        return totalPrice;
+    }
+
+    public String createReservation(Reservation r) throws SQLException {
+        Connection conn = dbController.getConnection();
+
+        if (!isParkAvailable(conn, r.getParkId(), r.getVisitDate(), r.getEntryTime(), r.getNumVisitors(), 0)) {
+            return "FULL: Park capacity reached for this hours.";
+        }
+
+        String confirmationCode = generateConfirmationCode();
+        double calculatedPrice = calculatePrice(conn, r);
+
+        String insertSql = "INSERT INTO reservations " +
+                "(traveler_id, traveler_type, park_id, visit_date, entry_time, num_visitors, email, type, status, confirmation_code, is_prepaid) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        PreparedStatement ps = conn.prepareStatement(insertSql);
+        ps.setInt(1, r.getTravelerId());
+        ps.setString(2, r.getTravelerType());
+        ps.setInt(3, r.getParkId());
+        ps.setDate(4, r.getVisitDate());
+        ps.setTime(5, r.getEntryTime());
+        ps.setInt(6, r.getNumVisitors());
+        ps.setString(7, r.getEmail());
+        ps.setString(8, r.getType());
+        ps.setString(9, "CONFIRMED");
+        ps.setString(10, confirmationCode);
+        ps.setBoolean(11, r.isPrepaid());
+
+        int rows = ps.executeUpdate();
+        ps.close();
+
+        if (rows > 0) {
+            return "SUCCESS:" + confirmationCode + ":" + calculatedPrice;
+        } else {
+            return "ERROR: Database insert failed";
+        }
+    }
+
+    public ArrayList<ArrayList<String>> getReservationsByTraveler(int travelerId, String travelerType) throws SQLException {
+        Connection conn = dbController.getConnection();
+
+        String sql = "SELECT r.id, p.name, r.visit_date, r.entry_time, r.num_visitors, r.type, r.status, r.confirmation_code " +
+                "FROM reservations r JOIN parks p ON r.park_id = p.id " +
+                "WHERE r.traveler_id = ? AND r.traveler_type = ?";
+
+        PreparedStatement ps = conn.prepareStatement(sql);
+        ps.setInt(1, travelerId);
+        ps.setString(2, travelerType);
+
+        ResultSet rs = ps.executeQuery();
+        ArrayList<ArrayList<String>> result = new ArrayList<>();
+
+        while (rs.next()) {
+            ArrayList<String> row = new ArrayList<>();
+            row.add(String.valueOf(rs.getInt("id")));
+            row.add(rs.getString("name"));
+            row.add(String.valueOf(rs.getDate("visit_date")));
+            row.add(String.valueOf(rs.getTime("entry_time")));
+            row.add(String.valueOf(rs.getInt("num_visitors")));
+            row.add(rs.getString("type"));
+            row.add(rs.getString("status"));
+            row.add(rs.getString("confirmation_code"));
+            result.add(row);
+        }
+
+        rs.close();
+        ps.close();
+
+        return result;
+    }
+
+    public boolean updateReservation(int reservationId, String visitDate, String entryTime, int numVisitors) throws SQLException {
+        Connection conn = dbController.getConnection();
+
+        String selectSql = "SELECT park_id FROM reservations WHERE id = ?";
+        PreparedStatement selectPs = conn.prepareStatement(selectSql);
+        selectPs.setInt(1, reservationId);
+        ResultSet selectRs = selectPs.executeQuery();
+        if (!selectRs.next()) {
+            selectRs.close();
+            selectPs.close();
+            return false;
+        }
+        int parkId = selectRs.getInt("park_id");
+        selectRs.close();
+        selectPs.close();
+
+        java.sql.Date vDate = java.sql.Date.valueOf(visitDate);
+        java.sql.Time eTime = java.sql.Time.valueOf(entryTime);
+        if (!isParkAvailable(conn, parkId, vDate, eTime, numVisitors, reservationId)) {
+            return false; 
+        }
+
+        String sql = "UPDATE reservations SET visit_date = ?, entry_time = ?, num_visitors = ? WHERE id = ?";
+        PreparedStatement ps = conn.prepareStatement(sql);
+        ps.setDate(1, vDate);
+        ps.setTime(2, eTime);
+        ps.setInt(3, numVisitors);
+        ps.setInt(4, reservationId);
+
+        int rows = ps.executeUpdate();
+        ps.close();
+
+        return rows > 0;
+    }
+}

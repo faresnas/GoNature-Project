@@ -11,6 +11,7 @@ import ocsf.server.ConnectionToClient;
 public class EchoServer extends AbstractServer {
 
     private DBController dbController;
+    private ReservationDB reservationDB;
     private OrderDB orderDB;
     private java.util.Timer connectionTimer;
     private Map<String, ConnectionToClient> activeSessions = new ConcurrentHashMap<>();
@@ -195,21 +196,26 @@ public class EchoServer extends AbstractServer {
                 logMessage("[REQUEST] " + clientIP + " → LOGIN_REQUEST");
                 ArrayList<String> loginData = (ArrayList<String>) request.getData();
                 LoginResponse response = handleLogin(loginData, client);
+
                 if (response.isSuccess() && response.getRole() != null) {
                     activeSessions.put(loginData.get(1), client);
                     client.setInfo("username", loginData.get(1));
                 }
+
                 client.sendToClient(response);
 
             } else if (command.equals("LOGOUT_REQUEST")) {
                 logMessage("[REQUEST] " + clientIP + " → LOGOUT_REQUEST");
                 String username = (String) client.getInfo("username");
+
                 if (username != null) {
                     activeSessions.remove(username);
                     client.setInfo("username", null);
                     logMessage("[LOGOUT] " + username + " logged out");
                 }
+
                 handleDisconnect(client);
+
                 try {
                     client.close();
                 } catch (Exception e) {
@@ -225,14 +231,53 @@ public class EchoServer extends AbstractServer {
             } else if (command.equals("UPDATE_ORDER")) {
                 logMessage("[REQUEST] " + clientIP + " → UPDATE_ORDER");
                 ArrayList<Object> updateData = (ArrayList<Object>) request.getData();
+
                 int id = (int) updateData.get(0);
                 String newDate = (String) updateData.get(1);
                 int visitors = (int) updateData.get(2);
+
                 boolean updateResult = orderDB.updateQuery(id, newDate, visitors);
                 client.sendToClient(updateResult);
+
                 if (updateResult) {
                     broadcastUpdatedOrders(client);
                 }
+
+            } else if (command.equals("CREATE_RESERVATION")) {
+                logMessage("[REQUEST] " + clientIP + " → CREATE_RESERVATION");
+
+                data.Reservation reservation = (data.Reservation) request.getData();
+                String resultString = reservationDB.createReservation(reservation);
+
+                client.sendToClient(resultString);
+
+            } else if (command.equals("GET_MY_RESERVATIONS")) {
+                logMessage("[REQUEST] " + clientIP + " → GET_MY_RESERVATIONS");
+
+                ArrayList<Object> data = (ArrayList<Object>) request.getData();
+
+                int travelerId = (int) data.get(0);
+                String travelerType = (String) data.get(1);
+
+                ArrayList<ArrayList<String>> reservations =
+                        reservationDB.getReservationsByTraveler(travelerId, travelerType);
+
+                client.sendToClient(reservations);
+
+            } else if (command.equals("UPDATE_RESERVATION")) {
+                logMessage("[REQUEST] " + clientIP + " → UPDATE_RESERVATION");
+
+                ArrayList<Object> data = (ArrayList<Object>) request.getData();
+
+                int reservationId = (int) data.get(0);
+                String visitDate = (String) data.get(1);
+                String entryTime = (String) data.get(2);
+                int numVisitors = (int) data.get(3);
+
+                boolean result =
+                        reservationDB.updateReservation(reservationId, visitDate, entryTime, numVisitors);
+
+                client.sendToClient(result);
 
             } else if (command.equals("CLIENT_EXIT")) {
                 handleDisconnect(client);
@@ -252,6 +297,7 @@ public class EchoServer extends AbstractServer {
     protected void serverStarted() {
         dbController = DBController.getInstance();
         orderDB = new OrderDB(dbController);
+        reservationDB = new ReservationDB(dbController);
         logMessage("[SERVER] GoNature Server is listening on port " + getPort());
 
         connectionTimer = new java.util.Timer();
@@ -278,7 +324,6 @@ public class EchoServer extends AbstractServer {
         }
         String ip = client.getInetAddress().getHostAddress();
         String host = client.getInetAddress().getHostName();
-        // store stable clientId at connect time so it never changes
         String clientId = ip + ":" + System.currentTimeMillis();
         client.setInfo("clientId", clientId);
         logMessage("[CONNECTED] Client joined — IP: " + ip + " | Host: " + host);
