@@ -9,7 +9,7 @@ import ocsf.server.AbstractServer;
 import ocsf.server.ConnectionToClient;
 
 public class EchoServer extends AbstractServer {
-
+	private EntryExitDB entryExitDB = new EntryExitDB();
     private DBController dbController;
     private ReservationDB reservationDB;
     private ManagementDB managementDB;
@@ -205,6 +205,50 @@ public class EchoServer extends AbstractServer {
 
                 client.sendToClient(response);
 
+            } else if (command.equals("ENTRY_WITH_RESERVATION")) {
+                logMessage("[REQUEST] " + clientIP + " → ENTRY_WITH_RESERVATION");
+
+                String identifier = (String) request.getData();
+                Common.EntryExitResponse response = entryExitDB.approveReservationEntry(identifier);
+                client.sendToClient(response);
+
+            } else if (command.equals("WALK_IN_ENTRY")) {
+                logMessage("[REQUEST] " + clientIP + " → WALK_IN_ENTRY");
+
+                ArrayList<Object> data = (ArrayList<Object>) request.getData();
+                int parkId = (int) data.get(0);
+                int numVisitors = (int) data.get(1);
+                String visitorType = (String) data.get(2);
+
+                Common.EntryExitResponse response =
+                        entryExitDB.approveWalkInEntry(parkId, numVisitors, visitorType);
+                client.sendToClient(response);
+
+            } else if (command.equals("REGISTER_EXIT")) {
+                logMessage("[REQUEST] " + clientIP + " → REGISTER_EXIT");
+
+                int visitId = (int) request.getData();
+                Common.EntryExitResponse response = entryExitDB.registerExit(visitId);
+                client.sendToClient(response);
+
+            } else if (command.equals("REGISTER_MANUAL_EXIT")) {
+                logMessage("[REQUEST] " + clientIP + " → REGISTER_MANUAL_EXIT");
+
+                ArrayList<Object> data = (ArrayList<Object>) request.getData();
+                int parkId = (int) data.get(0);
+                int numVisitors = (int) data.get(1);
+
+                Common.EntryExitResponse response =
+                        entryExitDB.registerManualExit(parkId, numVisitors);
+                client.sendToClient(response);
+
+            } else if (command.equals("GET_CURRENT_VISITORS")) {
+                logMessage("[REQUEST] " + clientIP + " → GET_CURRENT_VISITORS");
+
+                int parkId = (int) request.getData();
+                Common.EntryExitResponse response = entryExitDB.getCurrentVisitorsResponse(parkId);
+                client.sendToClient(response);
+
             } else if (command.equals("LOGOUT_REQUEST")) {
                 logMessage("[REQUEST] " + clientIP + " → LOGOUT_REQUEST");
                 String username = (String) client.getInfo("username");
@@ -296,7 +340,7 @@ public class EchoServer extends AbstractServer {
                 int familySize    = (int)    data.get(5);
                 String creditCard = (String) data.get(6);
                 int subscriberNumber = managementDB.registerSubscriber(
-                    firstName, lastName, idNumber, phone, email, familySize, creditCard);
+                        firstName, lastName, idNumber, phone, email, familySize, creditCard);
                 client.sendToClient(subscriberNumber);
 
             } else if (command.equals("REGISTER_GUIDE")) {
@@ -369,7 +413,7 @@ public class EchoServer extends AbstractServer {
                 String password = (String) data.get(4);
                 boolean result  = managementDB.editGuide(guideId, name, email, phone, password);
                 client.sendToClient(result);
-            	
+
             } else if (command.equals("EDIT_SUBSCRIBER")) {
                 logMessage("[REQUEST] " + clientIP + " → EDIT_SUBSCRIBER");
                 ArrayList<Object> data = (ArrayList<Object>) request.getData();
@@ -379,10 +423,10 @@ public class EchoServer extends AbstractServer {
                 String phone     = (String) data.get(3);
                 String email     = (String) data.get(4);
                 int familySize   = (int)    data.get(5);
-                boolean result   = managementDB.editSubscriber(subscriberId, firstName, lastName, phone, email, familySize);
+                boolean result   = managementDB.editSubscriber(
+                        subscriberId, firstName, lastName, phone, email, familySize);
                 client.sendToClient(result);
-            
-            
+
             } else if (command.equals("CLIENT_EXIT")) {
                 handleDisconnect(client);
 
@@ -396,7 +440,6 @@ public class EchoServer extends AbstractServer {
             e.printStackTrace();
         }
     }
-
     @Override
     protected void serverStarted() {
         dbController = DBController.getInstance();

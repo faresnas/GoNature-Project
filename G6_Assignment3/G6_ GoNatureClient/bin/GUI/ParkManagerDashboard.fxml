@@ -44,4 +44,5 @@
             style="-fx-background-color: #1b3a17; -fx-text-fill: white; -fx-font-size: 12;
                    -fx-border-radius: 5; -fx-background-radius: 5;
                    -fx-padding: 8 20 8 20; -fx-cursor: hand;" prefWidth="260"/>
+    
 </VBox>

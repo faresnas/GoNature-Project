@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml"
+            fx:controller="GUI.ParkExitController"
+            prefWidth="850" prefHeight="550"
+            style="-fx-background-color: #0B3D1E;">
+
+    <top>
+        <VBox spacing="8" style="-fx-padding: 25;">
+            <Label text="🌿 Park Exit"
+                   style="-fx-font-size: 28px; -fx-font-weight: bold; -fx-text-fill: white;" />
+            <Label fx:id="lblCurrentVisitors"
+                   text="Current visitors: -"
+                   style="-fx-font-size: 15px; -fx-text-fill: #D6F5D6;" />
+        </VBox>
+    </top>
+
+    <center>
+        <VBox spacing="20" style="-fx-padding: 25;">
+
+            <TitledPane text="Exit by Visit ID" expanded="true">
+                <GridPane hgap="12" vgap="12" style="-fx-padding: 20; -fx-background-color: white;">
+                    <Label text="Visit ID:"
+                           GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+
+                    <TextField fx:id="txtVisitId"
+                               promptText="Visit ID from entry approval"
+                               GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+                    <Button text="Register Exit by Visit ID"
+                            onAction="#registerExit"
+                            style="-fx-background-color: #2E7D32; -fx-text-fill: white; -fx-font-weight: bold;"
+                            GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+                </GridPane>
+            </TitledPane>
+
+            <TitledPane text="Manual Exit by Visitor Count" expanded="true">
+                <GridPane hgap="12" vgap="12" style="-fx-padding: 20; -fx-background-color: white;">
+                    <Label text="Park ID:"
+                           GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+
+                    <TextField fx:id="txtManualExitParkId"
+                               promptText="Example: 1"
+                               GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+                    <Label text="Visitors Leaving:"
+                           GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+
+                    <TextField fx:id="txtManualExitVisitors"
+                               promptText="Example: 2"
+                               GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+
+                    <Button text="Register Manual Exit"
+                            onAction="#registerManualExit"
+                            style="-fx-background-color: #2E7D32; -fx-text-fill: white; -fx-font-weight: bold;"
+                            GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+                </GridPane>
+            </TitledPane>
+
+            <HBox spacing="10">
+                <Button text="Back"
+                        onAction="#backToDashboard"
+                        style="-fx-background-color: #8B5A12; -fx-text-fill: white; -fx-font-weight: bold;"/>
+            </HBox>
+
+            <TextArea fx:id="txtResult"
+                      editable="false"
+                      prefHeight="130"
+                      promptText="Exit result will appear here"/>
+
+        </VBox>
+    </center>
+</BorderPane>
