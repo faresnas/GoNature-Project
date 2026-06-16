@@ -6,7 +6,7 @@
       fx:controller="GUI.ServiceRepDashboardController"
       spacing="16" alignment="CENTER"
       style="-fx-background-color: #2d5a27; -fx-padding: 40;"
-      prefWidth="420" prefHeight="420">
+      prefWidth="420" prefHeight="520">
 
     <Label text="🌿 GoNature"
            style="-fx-font-size: 24; -fx-font-weight: bold; -fx-text-fill: #f5f0e8;"/>
@@ -22,6 +22,16 @@
 
     <Button text="🧭 Register Guide" onAction="#registerGuide"
             style="-fx-background-color: #6d4c1f; -fx-text-fill: white; -fx-font-size: 13;
+                   -fx-font-weight: bold; -fx-border-radius: 5; -fx-background-radius: 5;
+                   -fx-padding: 10 30 10 30; -fx-cursor: hand;" prefWidth="260"/>
+
+    <Button text="🗑 Remove Subscriber" onAction="#removeSubscriber"
+            style="-fx-background-color: #7b2020; -fx-text-fill: white; -fx-font-size: 13;
+                   -fx-font-weight: bold; -fx-border-radius: 5; -fx-background-radius: 5;
+                   -fx-padding: 10 30 10 30; -fx-cursor: hand;" prefWidth="260"/>
+
+    <Button text="🗑 Remove Guide" onAction="#removeGuide"
+            style="-fx-background-color: #7b2020; -fx-text-fill: white; -fx-font-size: 13;
                    -fx-font-weight: bold; -fx-border-radius: 5; -fx-background-radius: 5;
                    -fx-padding: 10 30 10 30; -fx-cursor: hand;" prefWidth="260"/>
 

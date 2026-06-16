@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.geometry.Insets?>
+
+<VBox xmlns="http://javafx.com/javafx/21"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="GUI.PendingRequestsController"
+      alignment="TOP_CENTER"
+      spacing="0"
+      prefWidth="950"
+      prefHeight="620"
+      style="-fx-background-color: #1a3a1a;">
+
+    <!-- HEADER -->
+    <HBox alignment="CENTER_LEFT"
+          style="-fx-background-color: #0f2210; -fx-padding: 18 30 18 30;">
+        <Label text="🌿 GoNature"
+               style="-fx-font-size: 22; -fx-font-weight: bold; -fx-text-fill: #7ec87e;" />
+        <Region HBox.hgrow="ALWAYS" />
+        <Label text="Department Manager"
+               style="-fx-font-size: 13; -fx-text-fill: #a5c8a5; -fx-font-style: italic;" />
+    </HBox>
+
+    <!-- TITLE -->
+    <VBox alignment="CENTER" spacing="4" style="-fx-padding: 20 0 12 0;">
+        <Label text="Pending Park Requests"
+               style="-fx-font-size: 24; -fx-font-weight: bold; -fx-text-fill: #f0f7f0;" />
+        <Label text="Select a request to approve or reject"
+               style="-fx-font-size: 12; -fx-text-fill: #7aab7a;" />
+    </VBox>
+
+    <!-- TABLE -->
+    <VBox style="-fx-padding: 0 30 0 30;">
+        <TableView fx:id="requestsTable"
+                   prefHeight="360"
+                   maxWidth="890"
+                   style="-fx-background-color: #f9fdf9; -fx-background-radius: 10; -fx-border-radius: 10; -fx-border-color: #3a6b3a; -fx-border-width: 1.5;">
+            <columns>
+                <TableColumn fx:id="idCol"          text="ID"         prefWidth="50"  style="-fx-alignment: CENTER;" />
+                <TableColumn fx:id="parkCol"        text="🏞 Park"    prefWidth="180" />
+                <TableColumn fx:id="typeCol"        text="Parameter"  prefWidth="160" style="-fx-alignment: CENTER;" />
+                <TableColumn fx:id="valueCol"       text="New Value"  prefWidth="100" style="-fx-alignment: CENTER;" />
+                <TableColumn fx:id="requestedByCol" text="Requested By" prefWidth="160" />
+                <TableColumn fx:id="createdAtCol"   text="Submitted"  prefWidth="160" style="-fx-alignment: CENTER;" />
+            </columns>
+        </TableView>
+    </VBox>
+
+    <!-- BUTTONS -->
+    <VBox style="-fx-background-color: #0f2210; -fx-padding: 20 30 20 30;">
+        <VBox.margin>
+            <Insets top="18" left="30" right="30" bottom="0" />
+        </VBox.margin>
+        <HBox spacing="16" alignment="CENTER_LEFT">
+            <Button text="✔  Approve"
+                    onAction="#handleApprove"
+                    prefWidth="160" prefHeight="38"
+                    style="-fx-background-color: #2e7d32; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 13; -fx-background-radius: 8; -fx-cursor: hand;" />
+            <Button text="✖  Reject"
+                    onAction="#handleReject"
+                    prefWidth="160" prefHeight="38"
+                    style="-fx-background-color: #c62828; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 13; -fx-background-radius: 8; -fx-cursor: hand;" />
+            <Region HBox.hgrow="ALWAYS" />
+            <Button text="← Back"
+                    onAction="#handleBack"
+                    prefWidth="130" prefHeight="38"
+                    style="-fx-background-color: #37474f; -fx-text-fill: white; -fx-font-size: 13; -fx-background-radius: 8; -fx-cursor: hand;" />
+        </HBox>
+    </VBox>
+
+</VBox>
