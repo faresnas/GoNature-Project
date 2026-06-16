@@ -3,6 +3,8 @@ package GUI;
 import Client.ClientUI;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Scene;
 import javafx.scene.control.Label;
 
 public class ServiceRepDashboardController {
@@ -17,11 +19,67 @@ public class ServiceRepDashboardController {
         }
     }
 
-    @FXML void registerSubscriber(ActionEvent event) { /* TODO: F6 — register subscriber */ }
-    @FXML void registerGuide(ActionEvent event)      { /* TODO: F6 — register guide */ }
-    @FXML void logout(ActionEvent event)             { LogoutHelper.logout(); }
-    @FXML void exit(ActionEvent event) {
+    @FXML
+    void registerSubscriber(ActionEvent event) {
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                getClass().getResource("/GUI/RegisterSubscriber.fxml"));
+            Scene scene = new Scene(loader.load());
+            ClientUI.primaryStage.setScene(scene);
+        } catch (Exception e) {
+            System.out.println("Failed to open RegisterSubscriber: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    @FXML
+    void registerGuide(ActionEvent event) {
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                getClass().getResource("/GUI/RegisterGuide.fxml"));
+            Scene scene = new Scene(loader.load());
+            ClientUI.primaryStage.setScene(scene);
+        } catch (Exception e) {
+            System.out.println("Failed to open RegisterGuide: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    @FXML
+    void logout(ActionEvent event) {
+        LogoutHelper.logout();
+    }
+
+    @FXML
+    void exit(ActionEvent event) {
         if (ClientUI.client != null) ClientUI.client.disconnect();
         System.exit(0);
     }
+    
+    @FXML
+    void removeGuide(ActionEvent event) {
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                getClass().getResource("/GUI/RemoveGuide.fxml"));
+            Scene scene = new Scene(loader.load());
+            ClientUI.primaryStage.setScene(scene);
+        } catch (Exception e) {
+            System.out.println("Failed to open RemoveGuide: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    @FXML
+    void removeSubscriber(ActionEvent event) {
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                getClass().getResource("/GUI/RemoveSubscriber.fxml"));
+            Scene scene = new Scene(loader.load());
+            ClientUI.primaryStage.setScene(scene);
+        } catch (Exception e) {
+            System.out.println("Failed to open RemoveSubscriber: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
 }

@@ -12,6 +12,7 @@ public class EchoServer extends AbstractServer {
 
     private DBController dbController;
     private ReservationDB reservationDB;
+    private ManagementDB managementDB;
     private OrderDB orderDB;
     private java.util.Timer connectionTimer;
     private Map<String, ConnectionToClient> activeSessions = new ConcurrentHashMap<>();
@@ -245,40 +246,143 @@ public class EchoServer extends AbstractServer {
 
             } else if (command.equals("CREATE_RESERVATION")) {
                 logMessage("[REQUEST] " + clientIP + " → CREATE_RESERVATION");
-
                 data.Reservation reservation = (data.Reservation) request.getData();
                 String resultString = reservationDB.createReservation(reservation);
-
                 client.sendToClient(resultString);
 
             } else if (command.equals("GET_MY_RESERVATIONS")) {
                 logMessage("[REQUEST] " + clientIP + " → GET_MY_RESERVATIONS");
-
                 ArrayList<Object> data = (ArrayList<Object>) request.getData();
-
                 int travelerId = (int) data.get(0);
                 String travelerType = (String) data.get(1);
-
                 ArrayList<ArrayList<String>> reservations =
                         reservationDB.getReservationsByTraveler(travelerId, travelerType);
-
                 client.sendToClient(reservations);
 
             } else if (command.equals("UPDATE_RESERVATION")) {
                 logMessage("[REQUEST] " + clientIP + " → UPDATE_RESERVATION");
-
                 ArrayList<Object> data = (ArrayList<Object>) request.getData();
-
                 int reservationId = (int) data.get(0);
                 String visitDate = (String) data.get(1);
                 String entryTime = (String) data.get(2);
                 int numVisitors = (int) data.get(3);
-
                 boolean result =
                         reservationDB.updateReservation(reservationId, visitDate, entryTime, numVisitors);
-
                 client.sendToClient(result);
 
+            } else if (command.equals("DELETE_RESERVATION")) {
+                logMessage("[REQUEST] " + clientIP + " → DELETE_RESERVATION");
+                ArrayList<Object> data = (ArrayList<Object>) request.getData();
+                int reservationId = (int) data.get(0);
+                int travelerId = (int) data.get(1);
+                String travelerType = (String) data.get(2);
+                boolean result =
+                        reservationDB.deleteReservation(reservationId, travelerId, travelerType);
+                client.sendToClient(result);
+
+            } else if (command.equals("GET_PARKS")) {
+                logMessage("[REQUEST] " + clientIP + " → GET_PARKS");
+                ArrayList<ArrayList<String>> parks = reservationDB.getParks();
+                client.sendToClient(parks);
+
+            } else if (command.equals("REGISTER_SUBSCRIBER")) {
+                logMessage("[REQUEST] " + clientIP + " → REGISTER_SUBSCRIBER");
+                ArrayList<Object> data = (ArrayList<Object>) request.getData();
+                String firstName  = (String) data.get(0);
+                String lastName   = (String) data.get(1);
+                String idNumber   = (String) data.get(2);
+                String phone      = (String) data.get(3);
+                String email      = (String) data.get(4);
+                int familySize    = (int)    data.get(5);
+                String creditCard = (String) data.get(6);
+                int subscriberNumber = managementDB.registerSubscriber(
+                    firstName, lastName, idNumber, phone, email, familySize, creditCard);
+                client.sendToClient(subscriberNumber);
+
+            } else if (command.equals("REGISTER_GUIDE")) {
+                logMessage("[REQUEST] " + clientIP + " → REGISTER_GUIDE");
+                ArrayList<Object> data = (ArrayList<Object>) request.getData();
+                String name     = (String) data.get(0);
+                String email    = (String) data.get(1);
+                String phone    = (String) data.get(2);
+                String username = (String) data.get(3);
+                String password = (String) data.get(4);
+                boolean result = managementDB.registerGuide(name, email, phone, username, password);
+                client.sendToClient(result);
+
+            } else if (command.equals("REQUEST_PARK_UPDATE")) {
+                logMessage("[REQUEST] " + clientIP + " → REQUEST_PARK_UPDATE");
+                ArrayList<Object> data = (ArrayList<Object>) request.getData();
+                int parkId      = (int)    data.get(0);
+                String reqType  = (String) data.get(1);
+                double newValue = (double) data.get(2);
+                int requestedBy = (int)    data.get(3);
+                boolean result = managementDB.submitParkUpdateRequest(parkId, reqType, newValue, requestedBy);
+                client.sendToClient(result);
+
+            } else if (command.equals("GET_PENDING_REQUESTS")) {
+                logMessage("[REQUEST] " + clientIP + " → GET_PENDING_REQUESTS");
+                ArrayList<ArrayList<String>> requests = managementDB.getPendingRequests();
+                client.sendToClient(requests);
+
+            } else if (command.equals("APPROVE_REQUEST")) {
+                logMessage("[REQUEST] " + clientIP + " → APPROVE_REQUEST");
+                int requestId = (int) request.getData();
+                boolean result = managementDB.approveRequest(requestId);
+                client.sendToClient(result);
+
+            } else if (command.equals("REJECT_REQUEST")) {
+                logMessage("[REQUEST] " + clientIP + " → REJECT_REQUEST");
+                int requestId = (int) request.getData();
+                boolean result = managementDB.rejectRequest(requestId);
+                client.sendToClient(result);
+
+            } else if (command.equals("GET_ALL_GUIDES")) {
+                logMessage("[REQUEST] " + clientIP + " → GET_ALL_GUIDES");
+                ArrayList<ArrayList<String>> guides = managementDB.getAllGuides();
+                client.sendToClient(guides);
+
+            } else if (command.equals("GET_ALL_SUBSCRIBERS")) {
+                logMessage("[REQUEST] " + clientIP + " → GET_ALL_SUBSCRIBERS");
+                ArrayList<ArrayList<String>> subscribers = managementDB.getAllSubscribers();
+                client.sendToClient(subscribers);
+
+            } else if (command.equals("DELETE_GUIDE")) {
+                logMessage("[REQUEST] " + clientIP + " → DELETE_GUIDE");
+                int guideId = (int) request.getData();
+                boolean result = managementDB.deleteGuide(guideId);
+                client.sendToClient(result);
+
+            } else if (command.equals("DELETE_SUBSCRIBER")) {
+                logMessage("[REQUEST] " + clientIP + " → DELETE_SUBSCRIBER");
+                int subscriberId = (int) request.getData();
+                boolean result = managementDB.deleteSubscriber(subscriberId);
+                client.sendToClient(result);
+
+            } else if (command.equals("EDIT_GUIDE")) {
+                logMessage("[REQUEST] " + clientIP + " → EDIT_GUIDE");
+                ArrayList<Object> data = (ArrayList<Object>) request.getData();
+                int guideId     = (int)    data.get(0);
+                String name     = (String) data.get(1);
+                String email    = (String) data.get(2);
+                String phone    = (String) data.get(3);
+                String password = (String) data.get(4);
+                boolean result  = managementDB.editGuide(guideId, name, email, phone, password);
+                client.sendToClient(result);
+            	
+            } else if (command.equals("EDIT_SUBSCRIBER")) {
+                logMessage("[REQUEST] " + clientIP + " → EDIT_SUBSCRIBER");
+                ArrayList<Object> data = (ArrayList<Object>) request.getData();
+                int subscriberId = (int)    data.get(0);
+                String firstName = (String) data.get(1);
+                String lastName  = (String) data.get(2);
+                String phone     = (String) data.get(3);
+                String email     = (String) data.get(4);
+                int familySize   = (int)    data.get(5);
+                boolean result   = managementDB.editSubscriber(subscriberId, firstName, lastName, phone, email, familySize);
+                client.sendToClient(result);
+            
+            
             } else if (command.equals("CLIENT_EXIT")) {
                 handleDisconnect(client);
 
@@ -298,6 +402,7 @@ public class EchoServer extends AbstractServer {
         dbController = DBController.getInstance();
         orderDB = new OrderDB(dbController);
         reservationDB = new ReservationDB(dbController);
+        managementDB = new ManagementDB(dbController);
         logMessage("[SERVER] GoNature Server is listening on port " + getPort());
 
         connectionTimer = new java.util.Timer();

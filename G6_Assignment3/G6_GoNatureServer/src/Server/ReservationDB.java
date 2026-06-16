@@ -6,39 +6,47 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.UUID;
+import java.util.Random;
 
 public class ReservationDB {
 
     private DBController dbController;
+    private static final Random RANDOM = new Random();
 
     public ReservationDB(DBController dbController) {
         this.dbController = dbController;
     }
 
+    /**
+     * Generates a random 8-digit numeric confirmation code.
+     */
     private String generateConfirmationCode() {
-        return "RES-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        int code = 10000000 + RANDOM.nextInt(90000000); // 8-digit number
+        return String.valueOf(code);
     }
 
-    private boolean isParkAvailable(Connection conn, int parkId, java.sql.Date visitDate, java.sql.Time startTime, int numVisitors, int excludeReservationId) throws SQLException {
-        // התאמה לשם העמודה prebooked_reserved מה-DB שלך
+    /**
+     * Checks whether the park has capacity for the given visit slot.
+     * Excludes a specific reservation ID from the overlap check (used during edits).
+     */
+    private boolean isParkAvailable(Connection conn, int parkId, java.sql.Date visitDate,
+            java.sql.Time startTime, int numVisitors, int excludeReservationId) throws SQLException {
+
         String parkSql = "SELECT max_capacity, prebooked_reserved, avg_stay_hours FROM parks WHERE id = ?";
         PreparedStatement parkPs = conn.prepareStatement(parkSql);
         parkPs.setInt(1, parkId);
         ResultSet parkRs = parkPs.executeQuery();
-        
+
         if (!parkRs.next()) {
             parkRs.close();
             parkPs.close();
             return false;
         }
-        
+
         int maxCapacity = parkRs.getInt("max_capacity");
         int prebookedReserved = parkRs.getInt("prebooked_reserved");
         double avgStayDouble = parkRs.getDouble("avg_stay_hours");
         int avgStay = (avgStayDouble <= 0) ? 4 : (int) avgStayDouble;
-        
-        // הנוסחה: המכסה המותרת להזמנות מראש
         int allowedQuota = maxCapacity - prebookedReserved;
         parkRs.close();
         parkPs.close();
@@ -49,18 +57,18 @@ public class ReservationDB {
         java.sql.Time endTime = new java.sql.Time(cal.getTimeInMillis());
 
         String checkSql = "SELECT SUM(num_visitors) FROM reservations " +
-                          "WHERE park_id = ? AND visit_date = ? AND status = 'CONFIRMED' AND id != ? " +
-                          "AND ((entry_time <= ? AND entry_time < ?) OR (entry_time >= ? AND entry_time < ?))";
-        
+                "WHERE park_id = ? AND visit_date = ? AND status = 'CONFIRMED' AND id != ? " +
+                "AND ((entry_time <= ? AND entry_time < ?) OR (entry_time >= ? AND entry_time < ?))";
+
         PreparedStatement checkPs = conn.prepareStatement(checkSql);
         checkPs.setInt(1, parkId);
         checkPs.setDate(2, visitDate);
         checkPs.setInt(3, excludeReservationId);
         checkPs.setTime(4, startTime);
-        checkPs.setTime(5, endTime); 
+        checkPs.setTime(5, endTime);
         checkPs.setTime(6, startTime);
         checkPs.setTime(7, endTime);
-        
+
         ResultSet checkRs = checkPs.executeQuery();
         int currentBookedVisitors = 0;
         if (checkRs.next()) {
@@ -72,45 +80,50 @@ public class ReservationDB {
         return (currentBookedVisitors + numVisitors) <= allowedQuota;
     }
 
+    /**
+     * Calculates total price based on reservation type, traveler type, and prepaid status.
+     */
     private double calculatePrice(Connection conn, Reservation r) throws SQLException {
         String sql = "SELECT full_price FROM parks WHERE id = ?";
         PreparedStatement ps = conn.prepareStatement(sql);
         ps.setInt(1, r.getParkId());
         ResultSet rs = ps.executeQuery();
-        double fullPrice = 40.0; 
+        double fullPrice = 40.0;
         if (rs.next()) {
             fullPrice = rs.getDouble("full_price");
         }
         rs.close();
         ps.close();
 
-        double totalPrice = 0;
+        double totalPrice;
         int visitors = r.getNumVisitors();
 
         if ("GROUP".equals(r.getType())) {
-            int payingVisitors = Math.max(0, visitors - 1);
+            int payingVisitors = Math.max(0, visitors - 1); // guide doesn't pay for pre-booked
             double pricePerPerson = fullPrice * 0.75;
-            
             if (r.isPrepaid()) {
                 pricePerPerson = pricePerPerson * 0.88;
             }
             totalPrice = payingVisitors * pricePerPerson;
         } else {
             double pricePerPerson = fullPrice * 0.85;
-            
             if ("SUBSCRIBER".equals(r.getTravelerType())) {
                 pricePerPerson = pricePerPerson * 0.90;
             }
             totalPrice = visitors * pricePerPerson;
         }
+
         return totalPrice;
     }
 
+    /**
+     * Creates a new reservation. Returns "SUCCESS:CODE:PRICE" or "FULL:..." or "ERROR:...".
+     */
     public String createReservation(Reservation r) throws SQLException {
         Connection conn = dbController.getConnection();
 
         if (!isParkAvailable(conn, r.getParkId(), r.getVisitDate(), r.getEntryTime(), r.getNumVisitors(), 0)) {
-            return "FULL: Park capacity reached for this hours.";
+            return "FULL: Park capacity reached for this time slot.";
         }
 
         String confirmationCode = generateConfirmationCode();
@@ -137,12 +150,15 @@ public class ReservationDB {
         ps.close();
 
         if (rows > 0) {
-            return "SUCCESS:" + confirmationCode + ":" + calculatedPrice;
+            return "SUCCESS:" + confirmationCode + ":" + String.format("%.2f", calculatedPrice);
         } else {
-            return "ERROR: Database insert failed";
+            return "ERROR: Database insert failed.";
         }
     }
 
+    /**
+     * Returns all reservations for a given traveler as rows of strings for the TableView.
+     */
     public ArrayList<ArrayList<String>> getReservationsByTraveler(int travelerId, String travelerType) throws SQLException {
         Connection conn = dbController.getConnection();
 
@@ -176,26 +192,40 @@ public class ReservationDB {
         return result;
     }
 
+    /**
+     * Updates date, time, and visitor count for an existing reservation.
+     * Re-checks park availability before applying the change.
+     * Returns false if park is full or reservation not found.
+     */
     public boolean updateReservation(int reservationId, String visitDate, String entryTime, int numVisitors) throws SQLException {
         Connection conn = dbController.getConnection();
 
-        String selectSql = "SELECT park_id FROM reservations WHERE id = ?";
+        String selectSql = "SELECT park_id, status FROM reservations WHERE id = ?";
         PreparedStatement selectPs = conn.prepareStatement(selectSql);
         selectPs.setInt(1, reservationId);
         ResultSet selectRs = selectPs.executeQuery();
+
         if (!selectRs.next()) {
             selectRs.close();
             selectPs.close();
             return false;
         }
+
         int parkId = selectRs.getInt("park_id");
+        String currentStatus = selectRs.getString("status");
         selectRs.close();
         selectPs.close();
 
+        // Block editing cancelled reservations
+        if ("CANCELLED".equals(currentStatus)) {
+            return false;
+        }
+
         java.sql.Date vDate = java.sql.Date.valueOf(visitDate);
         java.sql.Time eTime = java.sql.Time.valueOf(entryTime);
+
         if (!isParkAvailable(conn, parkId, vDate, eTime, numVisitors, reservationId)) {
-            return false; 
+            return false;
         }
 
         String sql = "UPDATE reservations SET visit_date = ?, entry_time = ?, num_visitors = ? WHERE id = ?";
@@ -210,4 +240,50 @@ public class ReservationDB {
 
         return rows > 0;
     }
+
+    /**
+     * Deletes a reservation by ID. Only deletes if it belongs to the given traveler
+     * as a safety check so users can't delete each other's reservations.
+     * Returns true if a row was deleted, false otherwise.
+     */
+    public boolean deleteReservation(int reservationId, int travelerId, String travelerType) throws SQLException {
+        Connection conn = dbController.getConnection();
+
+        String sql = "DELETE FROM reservations WHERE id = ? AND traveler_id = ? AND traveler_type = ?";
+        PreparedStatement ps = conn.prepareStatement(sql);
+        ps.setInt(1, reservationId);
+        ps.setInt(2, travelerId);
+        ps.setString(3, travelerType);
+
+        int rows = ps.executeUpdate();
+        ps.close();
+
+        return rows > 0;
+    }
+    
+    
+    public ArrayList<ArrayList<String>> getParks() throws SQLException {
+        Connection conn = dbController.getConnection();
+
+        String sql = "SELECT id, name FROM parks";
+        PreparedStatement ps = conn.prepareStatement(sql);
+        ResultSet rs = ps.executeQuery();
+
+        ArrayList<ArrayList<String>> result = new ArrayList<>();
+        while (rs.next()) {
+            ArrayList<String> row = new ArrayList<>();
+            row.add(String.valueOf(rs.getInt("id")));
+            row.add(rs.getString("name"));
+            result.add(row);
+        }
+
+        rs.close();
+        ps.close();
+
+        return result;
+    }
+    
+    
 }
+
+
