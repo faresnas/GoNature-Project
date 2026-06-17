@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml"
+            fx:controller="GUI.VisitorCountController"
+            prefWidth="700" prefHeight="450"
+            style="-fx-background-color: #0B3D1E;">
+
+    <top>
+        <VBox spacing="8" style="-fx-padding: 25;">
+            <Label text="🌿 Current Visitor Count"
+                   style="-fx-font-size: 28px; -fx-font-weight: bold; -fx-text-fill: white;" />
+            <Label fx:id="lblCurrentVisitors"
+                   text="Current visitors: -"
+                   style="-fx-font-size: 15px; -fx-text-fill: #D6F5D6;" />
+        </VBox>
+    </top>
+
+    <center>
+        <VBox spacing="20" style="-fx-padding: 25;">
+
+            <TitledPane text="Check Current Visitors" expanded="true">
+                <GridPane hgap="12" vgap="12" style="-fx-padding: 20; -fx-background-color: white;">
+                    <Label text="Park ID:"
+                           GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+
+                    <TextField fx:id="txtParkId"
+                               promptText="Example: 1"
+                               GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+                    <Button text="Refresh Current Visitors"
+                            onAction="#refreshCurrentVisitors"
+                            style="-fx-background-color: #2E7D32; -fx-text-fill: white; -fx-font-weight: bold;"
+                            GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+                </GridPane>
+            </TitledPane>
+
+            <HBox spacing="10">
+                <Button text="Back"
+                        onAction="#backToDashboard"
+                        style="-fx-background-color: #8B5A12; -fx-text-fill: white; -fx-font-weight: bold;"/>
+            </HBox>
+
+            <TextArea fx:id="txtResult"
+                      editable="false"
+                      prefHeight="120"
+                      promptText="Visitor count result will appear here"/>
+
+        </VBox>
+    </center>
+</BorderPane>

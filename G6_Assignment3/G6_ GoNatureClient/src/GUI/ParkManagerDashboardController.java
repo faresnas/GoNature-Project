@@ -1,40 +1,67 @@
 package GUI;
 
+import java.io.IOException;
+
 import Client.ClientUI;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
 import javafx.scene.control.Label;
+import javafx.stage.Stage;
 
 public class ParkManagerDashboardController {
 
-    @FXML private Label lblWelcome;
+    @FXML
+    private Label lblWelcome;
 
     @FXML
     public void initialize() {
         if (ClientUI.loggedInUser != null) {
             lblWelcome.setText("Welcome, " + ClientUI.loggedInUser.getFirstName()
-                + " " + ClientUI.loggedInUser.getLastName());
+                    + " " + ClientUI.loggedInUser.getLastName());
         }
     }
 
     @FXML
-    void viewVisitorCount(ActionEvent event) { /* TODO: F4 */ }
+    void viewVisitorCount(ActionEvent event) {
+        try {
+            java.net.URL fxmlUrl = getClass().getResource("/GUI/VisitorCount.fxml");
+
+            if (fxmlUrl == null) {
+                System.out.println("ERROR: VisitorCount.fxml was not found in /GUI/VisitorCount.fxml");
+                return;
+            }
+
+            FXMLLoader loader = new FXMLLoader(fxmlUrl);
+            Scene scene = new Scene(loader.load());
+            ClientUI.primaryStage.setScene(scene);
+
+        } catch (IOException e) {
+            System.out.println("Failed to open VisitorCount: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
 
     @FXML
-    void visitsReport(ActionEvent event)     { /* TODO: F5 */ }
+    void visitsReport(ActionEvent event) {
+        /* TODO: F5 */
+    }
 
     @FXML
-    void usageReport(ActionEvent event)      { /* TODO: F5 */ }
+    void usageReport(ActionEvent event) {
+        /* TODO: F5 */
+    }
 
     @FXML
     void updateParkParams(ActionEvent event) {
         try {
             FXMLLoader loader = new FXMLLoader(
-                getClass().getResource("/GUI/UpdateParkParams.fxml"));
+                    getClass().getResource("/GUI/UpdateParkParams.fxml"));
+
             Scene scene = new Scene(loader.load());
             ClientUI.primaryStage.setScene(scene);
+
         } catch (Exception e) {
             System.out.println("Failed to open UpdateParkParams: " + e.getMessage());
             e.printStackTrace();
@@ -48,7 +75,9 @@ public class ParkManagerDashboardController {
 
     @FXML
     void exit(ActionEvent event) {
-        if (ClientUI.client != null) ClientUI.client.disconnect();
+        if (ClientUI.client != null) {
+            ClientUI.client.disconnect();
+        }
         System.exit(0);
     }
 }

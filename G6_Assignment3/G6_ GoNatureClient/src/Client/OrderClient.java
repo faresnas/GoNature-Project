@@ -2,17 +2,25 @@ package Client;
 
 import Common.Chat;
 import Common.LoginResponse;
+import Common.EntryExitResponse;
+
 import data.Order;
 import data.Reservation;
+
 import javafx.application.Platform;
 import ocsf.client.AbstractClient;
+
 import java.util.ArrayList;
+
 import GUI.MyReservationsController;
 import GUI.ReservationController;
 import GUI.PendingRequestsController;
 import GUI.UpdateParkParamsController;
 import GUI.RemoveGuideController;
 import GUI.RemoveSubscriberController;
+import GUI.ParkEntryController;
+import GUI.ParkExitController;
+import GUI.VisitorCountController;
 
 public class OrderClient extends AbstractClient {
 
@@ -22,6 +30,12 @@ public class OrderClient extends AbstractClient {
     public static UpdateParkParamsController updateParkParamsController;
     public static RemoveGuideController removeGuideController;
     public static RemoveSubscriberController removeSubscriberController;
+
+    // Feature 4 controllers
+    public static ParkEntryController parkEntryController;
+    public static ParkExitController parkExitController;
+    public static VisitorCountController visitorCountController;
+
     public static String lastCommand = "";
     public static ArrayList<Order> ordersList;
 
@@ -155,7 +169,7 @@ public class OrderClient extends AbstractClient {
             System.out.println("Failed to reject request: " + e.getMessage());
         }
     }
-    
+
     public void getAllGuides() {
         try {
             lastCommand = "GET_ALL_GUIDES";
@@ -191,7 +205,7 @@ public class OrderClient extends AbstractClient {
             System.out.println("Failed to delete subscriber: " + e.getMessage());
         }
     }
-    
+
     public void editGuide(int guideId, String name, String email,
             String phone, String password) {
         try {
@@ -231,8 +245,25 @@ public class OrderClient extends AbstractClient {
         if (chat instanceof LoginResponse) {
             LoginResponse response = (LoginResponse) chat;
             Platform.runLater(() -> {
-                if (ClientUI.connectionController != null)
+                if (ClientUI.connectionController != null) {
                     ClientUI.connectionController.handleLoginResponse(response);
+                }
+            });
+
+        } else if (chat instanceof EntryExitResponse) {
+            EntryExitResponse response = (EntryExitResponse) chat;
+            Platform.runLater(() -> {
+                if (parkEntryController != null) {
+                    parkEntryController.handleEntryExitResponse(response);
+                }
+
+                if (parkExitController != null) {
+                    parkExitController.handleEntryExitResponse(response);
+                }
+
+                if (visitorCountController != null) {
+                    visitorCountController.handleEntryExitResponse(response);
+                }
             });
 
         } else if (chat instanceof ArrayList<?>) {
@@ -240,30 +271,40 @@ public class OrderClient extends AbstractClient {
             Platform.runLater(() -> {
                 if (!list.isEmpty() && list.get(0) instanceof ArrayList) {
                     ArrayList<ArrayList<String>> data = (ArrayList<ArrayList<String>>) list;
+
                     switch (lastCommand) {
                         case "GET_PENDING_REQUESTS":
-                            if (pendingRequestsController != null)
+                            if (pendingRequestsController != null) {
                                 pendingRequestsController.setPendingRequestsTable(data);
+                            }
                             break;
+
                         case "GET_ALL_GUIDES":
-                            if (removeGuideController != null)
+                            if (removeGuideController != null) {
                                 removeGuideController.setGuidesTable(data);
+                            }
                             break;
+
                         case "GET_ALL_SUBSCRIBERS":
-                            if (removeSubscriberController != null)
+                            if (removeSubscriberController != null) {
                                 removeSubscriberController.setSubscribersTable(data);
+                            }
                             break;
+
                         case "GET_MY_RESERVATIONS":
-                            if (myReservationsController != null)
+                            if (myReservationsController != null) {
                                 myReservationsController.setReservationsTable(data);
+                            }
                             break;
+
                         default:
-                            if (reservationController != null && data.get(0).size() == 2)
+                            if (reservationController != null && data.get(0).size() == 2) {
                                 reservationController.populateParks(data);
-                            else if (myReservationsController != null)
+                            } else if (myReservationsController != null) {
                                 myReservationsController.setReservationsTable(data);
-                            else if (ClientUI.orderListController != null)
+                            } else if (ClientUI.orderListController != null) {
                                 ClientUI.orderListController.showOrders(data);
+                            }
                             break;
                     }
                 }
@@ -274,21 +315,23 @@ public class OrderClient extends AbstractClient {
             Platform.runLater(() -> {
                 if (result > 0) {
                     javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
-                        javafx.scene.control.Alert.AlertType.INFORMATION);
+                            javafx.scene.control.Alert.AlertType.INFORMATION);
                     alert.setTitle("Subscriber Registered");
                     alert.setHeaderText("✅ Registration Successful!");
                     alert.setContentText("Subscriber registered successfully.\nSubscriber Number: " + result);
                     alert.showAndWait();
+
                 } else if (result == -2) {
                     javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
-                        javafx.scene.control.Alert.AlertType.WARNING);
+                            javafx.scene.control.Alert.AlertType.WARNING);
                     alert.setTitle("Already Registered");
                     alert.setHeaderText(null);
                     alert.setContentText("A subscriber with this ID number already exists.");
                     alert.showAndWait();
+
                 } else {
                     javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
-                        javafx.scene.control.Alert.AlertType.ERROR);
+                            javafx.scene.control.Alert.AlertType.ERROR);
                     alert.setTitle("Registration Failed");
                     alert.setHeaderText(null);
                     alert.setContentText("Failed to register subscriber. Please try again.");
@@ -303,14 +346,14 @@ public class OrderClient extends AbstractClient {
                     case "REGISTER_GUIDE":
                         if (result) {
                             javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
-                                javafx.scene.control.Alert.AlertType.INFORMATION);
+                                    javafx.scene.control.Alert.AlertType.INFORMATION);
                             alert.setTitle("Guide Registered");
                             alert.setHeaderText("✅ Registration Successful!");
                             alert.setContentText("Group guide registered successfully.");
                             alert.showAndWait();
                         } else {
                             javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
-                                javafx.scene.control.Alert.AlertType.ERROR);
+                                    javafx.scene.control.Alert.AlertType.ERROR);
                             alert.setTitle("Registration Failed");
                             alert.setHeaderText(null);
                             alert.setContentText("Username already taken. Please choose a different username.");
@@ -321,14 +364,14 @@ public class OrderClient extends AbstractClient {
                     case "REQUEST_PARK_UPDATE":
                         if (result) {
                             javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
-                                javafx.scene.control.Alert.AlertType.INFORMATION);
+                                    javafx.scene.control.Alert.AlertType.INFORMATION);
                             alert.setTitle("Request Submitted");
                             alert.setHeaderText("✅ Request Sent!");
                             alert.setContentText("Your park update request has been submitted and is awaiting Department Manager approval.");
                             alert.showAndWait();
                         } else {
                             javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
-                                javafx.scene.control.Alert.AlertType.WARNING);
+                                    javafx.scene.control.Alert.AlertType.WARNING);
                             alert.setTitle("Request Failed");
                             alert.setHeaderText(null);
                             alert.setContentText("A pending request for this parameter already exists. Wait for it to be approved or rejected first.");
@@ -337,38 +380,45 @@ public class OrderClient extends AbstractClient {
                         break;
 
                     case "APPROVE_REQUEST":
-                        if (pendingRequestsController != null)
+                        if (pendingRequestsController != null) {
                             pendingRequestsController.handleApproveResponse(result);
+                        }
                         break;
 
                     case "REJECT_REQUEST":
-                        if (pendingRequestsController != null)
+                        if (pendingRequestsController != null) {
                             pendingRequestsController.handleRejectResponse(result);
+                        }
                         break;
 
                     case "DELETE_GUIDE":
-                        if (removeGuideController != null)
+                        if (removeGuideController != null) {
                             removeGuideController.handleDeleteResponse(result);
+                        }
                         break;
 
                     case "DELETE_SUBSCRIBER":
-                        if (removeSubscriberController != null)
+                        if (removeSubscriberController != null) {
                             removeSubscriberController.handleDeleteResponse(result);
+                        }
                         break;
+
                     case "EDIT_GUIDE":
-                        if (removeGuideController != null)
+                        if (removeGuideController != null) {
                             removeGuideController.handleEditResponse(result);
+                        }
                         break;
 
                     case "EDIT_SUBSCRIBER":
-                        if (removeSubscriberController != null)
+                        if (removeSubscriberController != null) {
                             removeSubscriberController.handleEditResponse(result);
+                        }
                         break;
 
                     default:
                         javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
-                            result ? javafx.scene.control.Alert.AlertType.INFORMATION
-                                   : javafx.scene.control.Alert.AlertType.WARNING);
+                                result ? javafx.scene.control.Alert.AlertType.INFORMATION
+                                       : javafx.scene.control.Alert.AlertType.WARNING);
                         alert.setTitle(result ? "Update Successful" : "Update Failed");
                         alert.setHeaderText(null);
                         alert.setContentText(result ? "Your reservation has been updated successfully!"
@@ -387,7 +437,7 @@ public class OrderClient extends AbstractClient {
                     String price = parts[2];
 
                     javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
-                        javafx.scene.control.Alert.AlertType.INFORMATION);
+                            javafx.scene.control.Alert.AlertType.INFORMATION);
                     alert.setTitle("Simulation");
                     alert.setHeaderText("✨ Reservation Confirmed!");
                     alert.setContentText("[SIMULATION] Email & SMS Notification Sent!\n" +
@@ -398,7 +448,7 @@ public class OrderClient extends AbstractClient {
 
                 } else if (serverResponse.startsWith("FULL:")) {
                     javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
-                        javafx.scene.control.Alert.AlertType.WARNING);
+                            javafx.scene.control.Alert.AlertType.WARNING);
                     alert.setTitle("Park Full");
                     alert.setHeaderText("Cannot Complete Booking");
                     alert.setContentText("The selected park is full for this time slot.\n" +
@@ -407,7 +457,7 @@ public class OrderClient extends AbstractClient {
 
                 } else {
                     javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
-                        javafx.scene.control.Alert.AlertType.ERROR);
+                            javafx.scene.control.Alert.AlertType.ERROR);
                     alert.setTitle("Error");
                     alert.setHeaderText("Action Failed");
                     alert.setContentText("Server response: " + serverResponse);

@@ -6,6 +6,13 @@ import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
 import javafx.scene.control.Label;
+import java.io.IOException;
+import javafx.event.ActionEvent;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Node;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
+import javafx.stage.Stage;
 
 public class DeptManagerDashboardController {
 
@@ -16,6 +23,25 @@ public class DeptManagerDashboardController {
         if (ClientUI.loggedInUser != null) {
             lblWelcome.setText("Welcome, " + ClientUI.loggedInUser.getFirstName()
                 + " " + ClientUI.loggedInUser.getLastName());
+        }
+    }
+    @FXML
+    void viewVisitorCount(ActionEvent event) {
+        try {
+            java.net.URL fxmlUrl = getClass().getResource("/GUI/VisitorCount.fxml");
+
+            if (fxmlUrl == null) {
+                System.out.println("ERROR: VisitorCount.fxml was not found in /GUI/VisitorCount.fxml");
+                return;
+            }
+
+            FXMLLoader loader = new FXMLLoader(fxmlUrl);
+            Scene scene = new Scene(loader.load());
+            ClientUI.primaryStage.setScene(scene);
+
+        } catch (IOException e) {
+            System.out.println("Failed to open VisitorCount: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
