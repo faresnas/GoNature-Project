@@ -447,13 +447,21 @@ public class OrderClient extends AbstractClient {
                     alert.showAndWait();
 
                 } else if (serverResponse.startsWith("FULL:")) {
-                    javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
-                            javafx.scene.control.Alert.AlertType.WARNING);
-                    alert.setTitle("Park Full");
-                    alert.setHeaderText("Cannot Complete Booking");
-                    alert.setContentText("The selected park is full for this time slot.\n" +
-                            "Please try choosing another date, time, or reduce visitor count.");
-                    alert.showAndWait();
+                	javafx.scene.control.Alert alert =new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.CONFIRMATION);
+                		alert.setTitle("Park Full");
+                		alert.setHeaderText("No Space Available");
+                		alert.setContentText("Join waiting list?");
+                		java.util.Optional<javafx.scene.control.ButtonType>
+                		    result = alert.showAndWait();
+
+                		if(result.isPresent()) {
+
+                		    if(result.get() ==javafx.scene.control.ButtonType.OK) {
+                		        if(reservationController != null) {
+                		            reservationController.joinWaitingList();
+                		        }
+                		    }
+                		}
 
                 } else {
                     javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
@@ -512,5 +520,32 @@ public class OrderClient extends AbstractClient {
     @Override
     protected void connectionException(Exception exception) {
         System.out.println("OrderClient: connection error — " + exception.getMessage());
+    }
+    public void joinWaitingList(Reservation reservation) {
+
+        try {
+
+            sendToServer(
+                new Chat(
+                    "JOIN_WAITING_LIST",
+                    reservation));
+
+        } catch(Exception e) {
+
+            System.out.println(
+                "Failed waiting list");
+        }
+    }
+    public void confirmReminder(int reservationId, int travelerId, String travelerType) {
+        try {
+            lastCommand = "CONFIRM_REMINDER";
+            ArrayList<Object> data = new ArrayList<>();
+            data.add(reservationId);
+            data.add(travelerId);
+            data.add(travelerType);
+            sendToServer(new Chat("CONFIRM_REMINDER", data));
+        } catch (Exception e) {
+            System.out.println("Failed to confirm reminder: " + e.getMessage());
+        }
     }
 }

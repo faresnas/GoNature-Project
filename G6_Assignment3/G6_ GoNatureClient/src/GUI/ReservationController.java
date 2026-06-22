@@ -27,6 +27,7 @@ public class ReservationController {
     @FXML private ComboBox<String> timeBox;
     @FXML private Spinner<Integer> visitorsSpinner;
     @FXML private TextField emailField;
+    private Reservation lastReservationAttempt;
 
     private HashMap<String, Integer> parkIdMap = new HashMap<>();
 
@@ -155,6 +156,8 @@ public class ReservationController {
             r.setEmail(emailField.getText());
             r.setStatus("PENDING");
             r.setPrepaid(false);
+            
+            lastReservationAttempt = r;
 
             ClientUI.client.createReservation(r);
 
@@ -181,6 +184,15 @@ public class ReservationController {
         } catch (Exception e) {
             System.out.println("Failed to redirect back to dashboard");
             e.printStackTrace();
+        }
+    }
+    
+    public void joinWaitingList() {
+
+        if(lastReservationAttempt != null) {
+
+            ClientUI.client.joinWaitingList(
+                lastReservationAttempt);
         }
     }
 }

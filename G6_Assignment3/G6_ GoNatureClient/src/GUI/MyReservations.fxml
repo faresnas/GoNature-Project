@@ -107,6 +107,10 @@
                         onAction="#handleDeleteReservation"
                         prefWidth="130" prefHeight="36"
                         style="-fx-background-color: #c62828; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 13; -fx-background-radius: 8; -fx-cursor: hand;" />
+               	<Button text="Confirm Reminder" 
+               			onAction="#handleConfirmReminder" 
+               			prefWidth="130" prefHeight="36"
+                        style="-fx-background-color: #c62828; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 13; -fx-background-radius: 8; -fx-cursor: hand;"/>
                 <Button text="← Back"
                         onAction="#handleGoBack"
                         prefWidth="130" prefHeight="36"

@@ -249,7 +249,8 @@ public class ReservationDB {
     public boolean deleteReservation(int reservationId, int travelerId, String travelerType) throws SQLException {
         Connection conn = dbController.getConnection();
 
-        String sql = "DELETE FROM reservations WHERE id = ? AND traveler_id = ? AND traveler_type = ?";
+        String sql ="UPDATE reservations " +"SET status='CANCELLED' " +
+        	    "WHERE id = ? AND traveler_id = ? AND traveler_type = ?";   
         PreparedStatement ps = conn.prepareStatement(sql);
         ps.setInt(1, reservationId);
         ps.setInt(2, travelerId);
@@ -283,7 +284,284 @@ public class ReservationDB {
         return result;
     }
     
+    public ArrayList<Integer> getReservationsNeedingReminder() throws SQLException {
+
+        Connection conn = dbController.getConnection();
+
+        String sql =
+            "SELECT id FROM reservations " +
+            "WHERE status='CONFIRMED' " +
+            "AND reminder_sent = FALSE " +
+            "AND DATEDIFF(visit_date,CURDATE()) = 1";
+
+        PreparedStatement ps = conn.prepareStatement(sql);
+
+        ResultSet rs = ps.executeQuery();
+
+        ArrayList<Integer> ids = new ArrayList<>();
+
+        while(rs.next()) {
+            ids.add(rs.getInt("id"));
+        }
+
+        rs.close();
+        ps.close();
+
+        return ids;
+    }
+    public void markReminderSent(int reservationId) throws SQLException {
+
+        Connection conn = dbController.getConnection();
+
+        String sql =
+            "UPDATE reservations " +
+            "SET reminder_sent = TRUE, " +
+            "reminder_sent_at = NOW() " +
+            "WHERE id=?";
+
+        PreparedStatement ps = conn.prepareStatement(sql);
+
+        ps.setInt(1,reservationId);
+
+        ps.executeUpdate();
+
+        ps.close();
+    }
+    public void autoCancelExpiredReservations() throws SQLException {
+
+        Connection conn = dbController.getConnection();
+
+        String sql =
+            "UPDATE reservations " +
+            "SET status='CANCELLED' " +
+            "WHERE reminder_sent=TRUE " +
+            "AND reminder_confirmed=FALSE " +
+            "AND TIMESTAMPDIFF(HOUR,reminder_sent_at,NOW()) >= 2";
+
+        PreparedStatement ps = conn.prepareStatement(sql);
+
+        ps.executeUpdate();
+
+        ps.close();
+        
+        
+    }
     
+    public void autoCancelUnconfirmed()
+    		throws SQLException {
+
+    		    Connection conn =
+    		        dbController.getConnection();
+
+    		    String sql =
+    		        "UPDATE reservations " +
+    		        "SET status='CANCELLED' " +
+    		        "WHERE status='PENDING' " +
+    		        "AND visit_date < CURDATE()";
+
+    		    PreparedStatement ps =
+    		        conn.prepareStatement(sql);
+
+    		    ps.executeUpdate();
+
+    		    ps.close();
+    		}
+    public void processWaitingList()throws SQLException {
+
+    		    Connection conn = dbController.getConnection();
+
+    		    String sql =
+    		        "SELECT * FROM waiting_list " +
+    		        "ORDER BY position";
+
+    		    PreparedStatement ps = conn.prepareStatement(sql);
+
+    		    ResultSet rs = ps.executeQuery();
+
+    		    while(rs.next()) {
+
+    		        System.out.println("[SIMULATION] Waiting list notification sent to " + rs.getString("email"));
+    		    }
+
+    		    rs.close();
+    		    ps.close();
+    		}
+    public boolean addToWaitingList(Reservation r) throws SQLException {
+
+        Connection conn = dbController.getConnection();
+
+        String posSql ="SELECT COALESCE(MAX(position),0)+1 " +
+            "FROM waiting_list";
+
+        PreparedStatement posPs = conn.prepareStatement(posSql);
+
+        ResultSet rs =posPs.executeQuery();
+
+        int position = 1;
+
+        if(rs.next()) {
+            position = rs.getInt(1);
+        }
+
+        rs.close();
+        posPs.close();
+
+        String sql =
+            "INSERT INTO waiting_list " +
+            "(traveler_id,traveler_type," +
+            "park_id,visit_date,entry_time," +
+            "num_visitors,email,position) " +
+            "VALUES (?,?,?,?,?,?,?,?)";
+
+        PreparedStatement ps =conn.prepareStatement(sql);
+
+        ps.setInt(1,r.getTravelerId());
+        ps.setString(2,r.getTravelerType());
+        ps.setInt(3,r.getParkId());
+        ps.setDate(4,r.getVisitDate());
+        ps.setTime(5,r.getEntryTime());
+        ps.setInt(6,r.getNumVisitors());
+        ps.setString(7,r.getEmail());
+        ps.setInt(8,position);
+
+        int rows = ps.executeUpdate();
+
+        ps.close();
+
+        return rows > 0;
+    }
+    public boolean confirmReminder(int reservationId, int travelerId, String travelerType) throws SQLException {
+        Connection conn = dbController.getConnection();
+
+        String sql =
+            "UPDATE reservations SET reminder_confirmed = TRUE " +
+            "WHERE id = ? AND traveler_id = ? AND traveler_type = ? AND status='CONFIRMED'";
+
+        PreparedStatement ps = conn.prepareStatement(sql);
+        ps.setInt(1, reservationId);
+        ps.setInt(2, travelerId);
+        ps.setString(3, travelerType);
+
+        int rows = ps.executeUpdate();
+        ps.close();
+        return rows > 0;
+    }
+    public void sendVisitReminders() throws SQLException {
+        Connection conn = dbController.getConnection();
+
+        String sql =
+            "SELECT r.id, r.email, v.phone " +
+            "FROM reservations r LEFT JOIN visitors v ON r.traveler_id = v.id " +
+            "WHERE r.status='CONFIRMED' " +
+            "AND r.reminder_sent = FALSE " +
+            "AND DATEDIFF(r.visit_date, CURDATE()) = 1";
+
+        PreparedStatement ps = conn.prepareStatement(sql);
+        ResultSet rs = ps.executeQuery();
+
+        while (rs.next()) {
+            System.out.println("[SIMULATION] Reminder sent | Reservation ID: "
+                    + rs.getInt("id")
+                    + " | Email: " + rs.getString("email")
+                    + " | Phone: " + rs.getString("phone"));
+        }
+
+        rs.close();
+        ps.close();
+
+        String updateSql =
+            "UPDATE reservations SET reminder_sent=TRUE, reminder_sent_at=NOW() " +
+            "WHERE status='CONFIRMED' AND reminder_sent=FALSE " +
+            "AND DATEDIFF(visit_date, CURDATE()) = 1";
+
+        PreparedStatement updatePs = conn.prepareStatement(updateSql);
+        updatePs.executeUpdate();
+        updatePs.close();
+    }
+    public void autoCancelUnconfirmedReservations() throws SQLException {
+        Connection conn = dbController.getConnection();
+
+        String selectSql =
+            "SELECT id, park_id, visit_date, entry_time " +
+            "FROM reservations " +
+            "WHERE status='CONFIRMED' " +
+            "AND reminder_sent=TRUE " +
+            "AND reminder_confirmed=FALSE " +
+            "AND TIMESTAMPDIFF(HOUR, reminder_sent_at, NOW()) >= 2";
+
+        PreparedStatement ps = conn.prepareStatement(selectSql);
+        ResultSet rs = ps.executeQuery();
+
+        while (rs.next()) {
+            int reservationId = rs.getInt("id");
+            int parkId = rs.getInt("park_id");
+            java.sql.Date visitDate = rs.getDate("visit_date");
+            java.sql.Time entryTime = rs.getTime("entry_time");
+
+            PreparedStatement cancelPs =
+                conn.prepareStatement("UPDATE reservations SET status='CANCELLED' WHERE id=?");
+            cancelPs.setInt(1, reservationId);
+            cancelPs.executeUpdate();
+            cancelPs.close();
+
+            notifyNextWaitingTraveler(parkId, visitDate, entryTime);
+        }
+
+        rs.close();
+        ps.close();
+    }
+    public void notifyNextWaitingTraveler(int parkId, java.sql.Date visitDate, java.sql.Time entryTime) throws SQLException {
+        Connection conn = dbController.getConnection();
+
+        String sql =
+            "SELECT id, email FROM waiting_list " +
+            "WHERE park_id=? AND visit_date=? AND entry_time=? AND status='WAITING' " +
+            "ORDER BY position ASC LIMIT 1";
+
+        PreparedStatement ps = conn.prepareStatement(sql);
+        ps.setInt(1, parkId);
+        ps.setDate(2, visitDate);
+        ps.setTime(3, entryTime);
+
+        ResultSet rs = ps.executeQuery();
+
+        if (rs.next()) {
+            int waitingId = rs.getInt("id");
+            String email = rs.getString("email");
+
+            System.out.println("[SIMULATION] Waiting list offer sent to: " + email);
+
+            PreparedStatement updatePs = conn.prepareStatement(
+                "UPDATE waiting_list SET status='NOTIFIED', notified_at=NOW(), offer_expires_at=DATE_ADD(NOW(), INTERVAL 1 HOUR) WHERE id=?"
+            );
+            updatePs.setInt(1, waitingId);
+            updatePs.executeUpdate();
+            updatePs.close();
+        }
+
+        rs.close();
+        ps.close();
+    }
+    public void expireWaitingListOffers() throws SQLException {
+        Connection conn = dbController.getConnection();
+
+        String sql =
+            "UPDATE waiting_list SET status='EXPIRED' " +
+            "WHERE status='NOTIFIED' AND offer_expires_at < NOW()";
+
+        PreparedStatement ps = conn.prepareStatement(sql);
+        ps.executeUpdate();
+        ps.close();
+
+        String oldSql =
+            "UPDATE waiting_list SET status='EXPIRED' " +
+            "WHERE TIMESTAMP(visit_date, entry_time) < NOW()";
+
+        PreparedStatement oldPs = conn.prepareStatement(oldSql);
+        oldPs.executeUpdate();
+        oldPs.close();
+    }
 }
+
 
 
