@@ -7,6 +7,7 @@ import Common.Chat;
 import Common.LoginResponse;
 import ocsf.server.AbstractServer;
 import ocsf.server.ConnectionToClient;
+import data.Reservation;
 
 public class EchoServer extends AbstractServer {
 	private EntryExitDB entryExitDB = new EntryExitDB();
@@ -204,6 +205,7 @@ public class EchoServer extends AbstractServer {
                 }
 
                 client.sendToClient(response);
+                
 
             } else if (command.equals("ENTRY_WITH_RESERVATION")) {
                 logMessage("[REQUEST] " + clientIP + " → ENTRY_WITH_RESERVATION");
@@ -328,6 +330,12 @@ public class EchoServer extends AbstractServer {
                 logMessage("[REQUEST] " + clientIP + " → GET_PARKS");
                 ArrayList<ArrayList<String>> parks = reservationDB.getParks();
                 client.sendToClient(parks);
+                
+            } else if(command.equals("JOIN_WAITING_LIST")) {
+
+                Reservation reservation =(Reservation) request.getData();
+                boolean result = reservationDB.addToWaitingList(reservation);
+                client.sendToClient(result);
 
             } else if (command.equals("REGISTER_SUBSCRIBER")) {
                 logMessage("[REQUEST] " + clientIP + " → REGISTER_SUBSCRIBER");
@@ -426,14 +434,23 @@ public class EchoServer extends AbstractServer {
                 boolean result   = managementDB.editSubscriber(
                         subscriberId, firstName, lastName, phone, email, familySize);
                 client.sendToClient(result);
+                
+            } else if (command.equals("CONFIRM_REMINDER")) {
+                ArrayList<Object> data = (ArrayList<Object>) request.getData();
+                int reservationId = (int) data.get(0);
+                int travelerId = (int) data.get(1);
+                String travelerType = (String) data.get(2);
+
+                boolean result = reservationDB.confirmReminder(reservationId, travelerId, travelerType);
+                client.sendToClient(result);
 
             } else if (command.equals("CLIENT_EXIT")) {
                 handleDisconnect(client);
 
             } else {
                 logMessage("[WARNING] " + clientIP + " → unknown command: " + command);
-                client.sendToClient(false);
-            }
+                client.sendToClient(false);  
+            } 
 
         } catch (Exception e) {
             logMessage("[ERROR] " + e.getMessage());
@@ -445,6 +462,8 @@ public class EchoServer extends AbstractServer {
         dbController = DBController.getInstance();
         orderDB = new OrderDB(dbController);
         reservationDB = new ReservationDB(dbController);
+        ReminderService reminderService = new ReminderService(reservationDB);
+        reminderService.start();
         managementDB = new ManagementDB(dbController);
         logMessage("[SERVER] GoNature Server is listening on port " + getPort());
 

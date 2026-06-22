@@ -174,6 +174,45 @@ public class MyReservationsController {
         ClientUI.client.deleteReservation(reservationId, travelerId, travelerType);
         refreshTable();
     }
+    
+    @FXML
+    void handleConfirmReminder(ActionEvent event) {
+        ArrayList<String> selectedRow =
+            reservationsTable.getSelectionModel().getSelectedItem();
+
+        if (selectedRow == null) {
+            showAlert(Alert.AlertType.WARNING,
+                    "No Selection",
+                    "Please select a reservation.");
+            return;
+        }
+
+        if (!"CONFIRMED".equals(selectedRow.get(6))) {
+            showAlert(Alert.AlertType.ERROR,
+                    "Invalid Reservation",
+                    "Only confirmed reservations can be confirmed.");
+            return;
+        }
+
+        int reservationId =
+            Integer.parseInt(selectedRow.get(0));
+
+        int travelerId =
+            ClientUI.loggedInUser.getUserId();
+
+        String travelerType =
+            ("GUIDE".equals(ClientUI.loggedInUser.getRole()))
+            ? "GUIDE"
+            : "VISITOR";
+
+        ClientUI.client.confirmReminder(
+            reservationId,
+            travelerId,
+            travelerType
+        );
+
+        refreshTable();
+    }
 
     @FXML
     void handleGoBack(ActionEvent event) {
