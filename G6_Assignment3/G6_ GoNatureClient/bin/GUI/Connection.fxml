@@ -6,7 +6,7 @@
       fx:controller="GUI.ConnectionController"
       spacing="12" alignment="CENTER"
       style="-fx-background-color: #2d5a27; -fx-padding: 40;"
-      prefWidth="400" prefHeight="620">
+      prefWidth="400" prefHeight="660">
 
     <fx:define>
         <ToggleGroup fx:id="loginTypeGroup"/>
@@ -48,7 +48,6 @@
                      style="-fx-text-fill: #f5f0e8;"/>
     </HBox>
 
-    <!-- Role dropdown — only visible for Employee -->
     <VBox fx:id="roleRow" spacing="4" maxWidth="280">
         <Label text="Role:" style="-fx-text-fill: #f5f0e8; -fx-font-size: 13;"/>
         <ComboBox fx:id="cbRole" maxWidth="280"
@@ -89,6 +88,12 @@
                    -fx-font-size: 14; -fx-font-weight: bold;
                    -fx-border-radius: 5; -fx-background-radius: 5;
                    -fx-padding: 8 30 8 30; -fx-cursor: hand;"
+            maxWidth="280"/>
+
+    <Button text="📝 New Visitor? Register Here" onAction="#openRegisterVisitor"
+            style="-fx-background-color: #3a7a34; -fx-text-fill: white;
+                   -fx-font-size: 13; -fx-border-radius: 5; -fx-background-radius: 5;
+                   -fx-padding: 6 30 6 30; -fx-cursor: hand;"
             maxWidth="280"/>
 
     <Button text="Exit" onAction="#exit"

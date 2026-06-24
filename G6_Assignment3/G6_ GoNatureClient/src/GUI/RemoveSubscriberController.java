@@ -51,23 +51,20 @@ public class RemoveSubscriberController {
         familySizeCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().get(6)));
         subscriberNumCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().get(7)));
 
+        // No min/max — validate manually
         editFamilySizeSpinner.setValueFactory(
-            new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 20, 1)
+            new SpinnerValueFactory.IntegerSpinnerValueFactory(Integer.MIN_VALUE, Integer.MAX_VALUE, 1)
         );
+        editFamilySizeSpinner.setEditable(true);
 
-        // Auto-fill edit fields on row select
+        // Auto-fill edit fields on row select — use setText directly, not setValue
         subscribersTable.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
                 editFirstNameField.setText(newVal.get(1));
                 editLastNameField.setText(newVal.get(2));
                 editPhoneField.setText(newVal.get(4));
                 editEmailField.setText(newVal.get(5));
-                try {
-                    editFamilySizeSpinner.getValueFactory()
-                        .setValue(Integer.parseInt(newVal.get(6)));
-                } catch (Exception e) {
-                    editFamilySizeSpinner.getValueFactory().setValue(1);
-                }
+                editFamilySizeSpinner.getEditor().setText(newVal.get(6));
             }
         });
 
@@ -92,14 +89,34 @@ public class RemoveSubscriberController {
         String lastName  = editLastNameField.getText().trim();
         String phone     = editPhoneField.getText().trim();
         String email     = editEmailField.getText().trim();
-        int familySize   = editFamilySizeSpinner.getValue();
+
+        // Read raw spinner text
+        String rawFamily = editFamilySizeSpinner.getEditor().getText().trim();
+        int familySize;
+        try {
+            familySize = Integer.parseInt(rawFamily);
+        } catch (NumberFormatException e) {
+            familySize = 0;
+        }
+
+        if (familySize < 1) {
+            showAlert(Alert.AlertType.ERROR, "Invalid Family Size",
+                "Family size must be at least 1.");
+            return;
+        }
+
+        if (familySize > 15) {
+            showAlert(Alert.AlertType.ERROR, "Invalid Family Size",
+                "Family size cannot exceed 15.");
+            return;
+        }
 
         if (firstName.isEmpty() || lastName.isEmpty() || phone.isEmpty() || email.isEmpty()) {
             showAlert(Alert.AlertType.WARNING, "Missing Fields", "Please fill in all fields.");
             return;
         }
 
-        if (!email.matches("^[\\w._%+\\-]+@[\\w.\\-]+\\.[a-zA-Z]{2,}$")) {
+        if (!email.matches("^[\\w._%+\\-]+@[\\w.\\-]+\\.[a-zA-Z]{2,4}$")) {
             showAlert(Alert.AlertType.ERROR, "Invalid Email", "Please enter a valid email address.");
             return;
         }
@@ -145,7 +162,6 @@ public class RemoveSubscriberController {
             Scene scene = new Scene(loader.load());
             ClientUI.primaryStage.setScene(scene);
         } catch (Exception e) {
-            System.out.println("Failed to go back: " + e.getMessage());
             e.printStackTrace();
         }
     }

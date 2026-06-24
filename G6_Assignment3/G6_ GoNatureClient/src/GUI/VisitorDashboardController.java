@@ -4,16 +4,26 @@ import Client.ClientUI;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.control.Label;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Scene;
 
 public class VisitorDashboardController {
 
     @FXML private Label lblWelcome;
+    @FXML private Label lblDashboard;
 
     @FXML
     public void initialize() {
         if (ClientUI.loggedInUser != null) {
             lblWelcome.setText("Welcome, " + ClientUI.loggedInUser.getFirstName()
                 + " " + ClientUI.loggedInUser.getLastName());
+            String userType = ClientUI.loggedInUser.getUserType() != null
+                              ? ClientUI.loggedInUser.getUserType().toString() : "";
+            if ("SUBSCRIBER".equals(userType)) {
+                lblDashboard.setText("Subscriber Dashboard");
+            } else {
+                lblDashboard.setText("Visitor Dashboard");
+            }
         }
     }
 
@@ -49,6 +59,26 @@ public class VisitorDashboardController {
 
         } catch (Exception e) {
             System.out.println("Failed to open my reservations screen.");
+            e.printStackTrace();
+        }
+    }
+    @FXML
+    void editProfile(ActionEvent event) {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/GUI/EditProfile.fxml"));
+            Scene scene = new Scene(loader.load());
+            ClientUI.primaryStage.setScene(scene);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+    @FXML
+    void openWaitingList(ActionEvent event) {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/GUI/WaitingList.fxml"));
+            Scene scene = new Scene(loader.load());
+            ClientUI.primaryStage.setScene(scene);
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }

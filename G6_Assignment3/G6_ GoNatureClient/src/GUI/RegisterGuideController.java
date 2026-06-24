@@ -15,46 +15,42 @@ public class RegisterGuideController {
     @FXML private TextField phoneField;
     @FXML private TextField usernameField;
     @FXML private TextField passwordField;
+    @FXML private TextField idNumberField;
 
     @FXML
     void handleRegister(ActionEvent event) {
         String name     = nameField.getText().trim();
         String email    = emailField.getText().trim();
         String phone    = phoneField.getText().trim();
+        String idNumber = idNumberField.getText().trim();
         String username = usernameField.getText().trim();
         String password = passwordField.getText().trim();
 
-        // Empty field check
         if (name.isEmpty() || email.isEmpty() || phone.isEmpty() ||
-                username.isEmpty() || password.isEmpty()) {
-            showAlert(Alert.AlertType.WARNING, "Missing Fields",
-                "Please fill in all fields.");
+                idNumber.isEmpty() || username.isEmpty() || password.isEmpty()) {
+            showAlert(Alert.AlertType.WARNING, "Missing Fields", "Please fill in all fields.");
             return;
         }
-
-        // Email format check
+        if (!idNumber.matches("\\d+")) {
+            showAlert(Alert.AlertType.ERROR, "Invalid ID", "ID number must contain digits only.");
+            return;
+        }
         if (!email.matches("^[\\w._%+\\-]+@[\\w.\\-]+\\.[a-zA-Z]{2,}$")) {
-            showAlert(Alert.AlertType.ERROR, "Invalid Email",
-                "Please enter a valid email address.");
+            showAlert(Alert.AlertType.ERROR, "Invalid Email", "Please enter a valid email address.");
             return;
         }
-
-        // Phone digits only
         if (!phone.matches("\\d+")) {
-            showAlert(Alert.AlertType.ERROR, "Invalid Phone",
-                "Phone number must contain digits only.");
+            showAlert(Alert.AlertType.ERROR, "Invalid Phone", "Phone number must contain digits only.");
             return;
         }
-
-        // Password minimum length
         if (password.length() < 4) {
-            showAlert(Alert.AlertType.ERROR, "Weak Password",
-                "Password must be at least 4 characters.");
+            showAlert(Alert.AlertType.ERROR, "Weak Password", "Password must be at least 4 characters.");
             return;
         }
 
-        ClientUI.client.registerGuide(name, email, phone, username, password);
+        ClientUI.client.registerGuide(name, email, phone, idNumber, username, password);
     }
+
 
     @FXML
     void handleBack(ActionEvent event) {
@@ -68,6 +64,10 @@ public class RegisterGuideController {
             e.printStackTrace();
         }
     }
+
+
+    
+
 
     private void showAlert(Alert.AlertType type, String title, String content) {
         Alert alert = new Alert(type);

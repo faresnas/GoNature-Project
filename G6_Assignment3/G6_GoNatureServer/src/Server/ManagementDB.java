@@ -14,27 +14,32 @@ public class ManagementDB {
         this.dbController = dbController;
     }
 
-    /**
-     * Registers a new subscriber. Returns the generated subscriber_number or -1 on failure.
-     */
     public int registerSubscriber(String firstName, String lastName, String idNumber,
             String phone, String email, int familySize, String creditCard) throws SQLException {
         Connection conn = dbController.getConnection();
 
-        // Check if ID already registered
+        // Check visitor exists
+        String visitorCheck = "SELECT id FROM visitors WHERE id_number = ?";
+        PreparedStatement visitorPs = conn.prepareStatement(visitorCheck);
+        visitorPs.setString(1, idNumber);
+        ResultSet visitorRs = visitorPs.executeQuery();
+        if (!visitorRs.next()) {
+            visitorRs.close(); visitorPs.close();
+            return -3; // not a registered visitor
+        }
+        visitorRs.close(); visitorPs.close();
+
+        // Check not already a subscriber
         String checkSql = "SELECT id FROM subscribers WHERE id_number = ?";
         PreparedStatement checkPs = conn.prepareStatement(checkSql);
         checkPs.setString(1, idNumber);
         ResultSet checkRs = checkPs.executeQuery();
         if (checkRs.next()) {
-            checkRs.close();
-            checkPs.close();
-            return -2; // already exists
+            checkRs.close(); checkPs.close();
+            return -2; // already a subscriber
         }
-        checkRs.close();
-        checkPs.close();
+        checkRs.close(); checkPs.close();
 
-        // Generate unique subscriber number (8-digit)
         int subscriberNumber = 10000000 + new java.util.Random().nextInt(90000000);
 
         String sql = "INSERT INTO subscribers (first_name, last_name, id_number, phone, email, family_size, credit_card, subscriber_number) " +
@@ -48,68 +53,83 @@ public class ManagementDB {
         ps.setInt(6, familySize);
         ps.setString(7, creditCard);
         ps.setInt(8, subscriberNumber);
-
         int rows = ps.executeUpdate();
         ps.close();
 
-        return rows > 0 ? subscriberNumber : -1;
+        if (rows > 0) {
+            // Move visitor out of visitors table
+            String deleteSql = "DELETE FROM visitors WHERE id_number = ?";
+            PreparedStatement deletePs = conn.prepareStatement(deleteSql);
+            deletePs.setString(1, idNumber);
+            deletePs.executeUpdate();
+            deletePs.close();
+            return subscriberNumber;
+        }
+        return -1;
     }
 
-    /**
-     * Registers a new group guide. Returns true on success, false if username already exists.
-     */
-    public boolean registerGuide(String name, String email, String phone,
-            String username, String password) throws SQLException {
+    public int registerGuide(String name, String email, String phone,
+            String idNumber, String username, String password) throws SQLException {
         Connection conn = dbController.getConnection();
 
-        // Check if username already taken
+        // -3 = not a registered visitor
+        String visitorCheck = "SELECT id FROM visitors WHERE id_number = ?";
+        PreparedStatement visitorPs = conn.prepareStatement(visitorCheck);
+        visitorPs.setString(1, idNumber);
+        ResultSet visitorRs = visitorPs.executeQuery();
+        if (!visitorRs.next()) {
+            visitorRs.close(); visitorPs.close();
+            return -3;
+        }
+        visitorRs.close(); visitorPs.close();
+
+        // -2 = username taken
         String checkSql = "SELECT id FROM guides WHERE username = ?";
         PreparedStatement checkPs = conn.prepareStatement(checkSql);
         checkPs.setString(1, username);
         ResultSet checkRs = checkPs.executeQuery();
         if (checkRs.next()) {
-            checkRs.close();
-            checkPs.close();
-            return false;
+            checkRs.close(); checkPs.close();
+            return -2;
         }
-        checkRs.close();
-        checkPs.close();
+        checkRs.close(); checkPs.close();
 
-        String sql = "INSERT INTO guides (name, email, phone, username, password) VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO guides (name, email, phone, id_number, username, password) VALUES (?, ?, ?, ?, ?, ?)";
         PreparedStatement ps = conn.prepareStatement(sql);
         ps.setString(1, name);
         ps.setString(2, email);
         ps.setString(3, phone);
-        ps.setString(4, username);
-        ps.setString(5, password);
-
+        ps.setString(4, idNumber);
+        ps.setString(5, username);
+        ps.setString(6, password);
         int rows = ps.executeUpdate();
         ps.close();
 
-        return rows > 0;
+        if (rows > 0) {
+            String deleteSql = "DELETE FROM visitors WHERE id_number = ?";
+            PreparedStatement deletePs = conn.prepareStatement(deleteSql);
+            deletePs.setString(1, idNumber);
+            deletePs.executeUpdate();
+            deletePs.close();
+            return 1; // success
+        }
+        return -1;
     }
 
-    /**
-     * Saves a park parameter update request as PENDING.
-     * requestType: MAX_CAPACITY, PREBOOKED_RESERVED, AVG_STAY_HOURS, PROMOTION
-     */
     public boolean submitParkUpdateRequest(int parkId, String requestType,
             double newValue, int requestedBy) throws SQLException {
         Connection conn = dbController.getConnection();
 
-        // Check no duplicate pending request for same park + type
         String checkSql = "SELECT id FROM pending_requests WHERE park_id = ? AND request_type = ? AND status = 'PENDING'";
         PreparedStatement checkPs = conn.prepareStatement(checkSql);
         checkPs.setInt(1, parkId);
         checkPs.setString(2, requestType);
         ResultSet checkRs = checkPs.executeQuery();
         if (checkRs.next()) {
-            checkRs.close();
-            checkPs.close();
-            return false; // already a pending request for this
+            checkRs.close(); checkPs.close();
+            return false;
         }
-        checkRs.close();
-        checkPs.close();
+        checkRs.close(); checkPs.close();
 
         String sql = "INSERT INTO pending_requests (park_id, request_type, new_value, requested_by) VALUES (?, ?, ?, ?)";
         PreparedStatement ps = conn.prepareStatement(sql);
@@ -117,17 +137,11 @@ public class ManagementDB {
         ps.setString(2, requestType);
         ps.setDouble(3, newValue);
         ps.setInt(4, requestedBy);
-
         int rows = ps.executeUpdate();
         ps.close();
-
         return rows > 0;
     }
 
-    /**
-     * Returns all PENDING requests for the Dept Manager to review.
-     * Each row: [id, park_name, request_type, new_value, requested_by_name, created_at]
-     */
     public ArrayList<ArrayList<String>> getPendingRequests() throws SQLException {
         Connection conn = dbController.getConnection();
 
@@ -145,46 +159,33 @@ public class ManagementDB {
         ArrayList<ArrayList<String>> result = new ArrayList<>();
         while (rs.next()) {
             ArrayList<String> row = new ArrayList<>();
-            row.add(String.valueOf(rs.getInt(1)));       // id
-            row.add(rs.getString(2));                     // park name
-            row.add(rs.getString(3));                     // request_type
-            row.add(String.valueOf(rs.getDouble(4)));     // new_value
-            row.add(rs.getString(5));                     // requested by name
-            row.add(String.valueOf(rs.getTimestamp(6)));  // created_at
+            row.add(String.valueOf(rs.getInt(1)));
+            row.add(rs.getString(2));
+            row.add(rs.getString(3));
+            row.add(String.valueOf(rs.getDouble(4)));
+            row.add(rs.getString(5));
+            row.add(String.valueOf(rs.getTimestamp(6)));
             result.add(row);
         }
-
-        rs.close();
-        ps.close();
-
+        rs.close(); ps.close();
         return result;
     }
 
-    /**
-     * Approves a pending request — applies the change to the parks table immediately.
-     */
     public boolean approveRequest(int requestId) throws SQLException {
         Connection conn = dbController.getConnection();
 
-        // Get request details
         String selectSql = "SELECT park_id, request_type, new_value FROM pending_requests WHERE id = ? AND status = 'PENDING'";
         PreparedStatement selectPs = conn.prepareStatement(selectSql);
         selectPs.setInt(1, requestId);
         ResultSet rs = selectPs.executeQuery();
 
-        if (!rs.next()) {
-            rs.close();
-            selectPs.close();
-            return false;
-        }
+        if (!rs.next()) { rs.close(); selectPs.close(); return false; }
 
         int parkId = rs.getInt("park_id");
         String requestType = rs.getString("request_type");
         double newValue = rs.getDouble("new_value");
-        rs.close();
-        selectPs.close();
+        rs.close(); selectPs.close();
 
-        // Apply change to parks table
         String column;
         switch (requestType) {
             case "MAX_CAPACITY":       column = "max_capacity";       break;
@@ -194,16 +195,15 @@ public class ManagementDB {
             default: return false;
         }
 
-        String updateParkSql = "UPDATE parks SET " + column + " = ? WHERE id = ?";
-        PreparedStatement updatePs = conn.prepareStatement(updateParkSql);
+        PreparedStatement updatePs = conn.prepareStatement(
+            "UPDATE parks SET " + column + " = ? WHERE id = ?");
         updatePs.setDouble(1, newValue);
         updatePs.setInt(2, parkId);
         updatePs.executeUpdate();
         updatePs.close();
 
-        // Mark request as APPROVED
-        String approveSql = "UPDATE pending_requests SET status = 'APPROVED' WHERE id = ?";
-        PreparedStatement approvePs = conn.prepareStatement(approveSql);
+        PreparedStatement approvePs = conn.prepareStatement(
+            "UPDATE pending_requests SET status = 'APPROVED' WHERE id = ?");
         approvePs.setInt(1, requestId);
         approvePs.executeUpdate();
         approvePs.close();
@@ -211,25 +211,16 @@ public class ManagementDB {
         return true;
     }
 
-    /**
-     * Rejects a pending request — discards it, no DB change applied.
-     */
     public boolean rejectRequest(int requestId) throws SQLException {
         Connection conn = dbController.getConnection();
-
         String sql = "UPDATE pending_requests SET status = 'REJECTED' WHERE id = ? AND status = 'PENDING'";
         PreparedStatement ps = conn.prepareStatement(sql);
         ps.setInt(1, requestId);
         int rows = ps.executeUpdate();
         ps.close();
-
         return rows > 0;
     }
-    
-    /**
-     * Returns all guides as rows for the TableView.
-     * Each row: [id, name, email, phone, username]
-     */
+
     public ArrayList<ArrayList<String>> getAllGuides() throws SQLException {
         Connection conn = dbController.getConnection();
         String sql = "SELECT id, name, email, phone, username FROM guides";
@@ -246,15 +237,10 @@ public class ManagementDB {
             row.add(rs.getString("username"));
             result.add(row);
         }
-        rs.close();
-        ps.close();
+        rs.close(); ps.close();
         return result;
     }
 
-    /**
-     * Returns all subscribers as rows for the TableView.
-     * Each row: [id, first_name, last_name, id_number, phone, email, family_size, subscriber_number]
-     */
     public ArrayList<ArrayList<String>> getAllSubscribers() throws SQLException {
         Connection conn = dbController.getConnection();
         String sql = "SELECT id, first_name, last_name, id_number, phone, email, family_size, subscriber_number FROM subscribers";
@@ -271,16 +257,13 @@ public class ManagementDB {
             row.add(rs.getString("phone"));
             row.add(rs.getString("email"));
             row.add(String.valueOf(rs.getInt("family_size")));
-            row.add(rs.getString("subscriber_number")); // getString handles both formats
+            row.add(rs.getString("subscriber_number"));
             result.add(row);
         }
-        rs.close();
-        ps.close();
+        rs.close(); ps.close();
         return result;
     }
-    /**
-     * Deletes a guide by ID.
-     */
+
     public boolean deleteGuide(int guideId) throws SQLException {
         Connection conn = dbController.getConnection();
         String sql = "DELETE FROM guides WHERE id = ?";
@@ -291,9 +274,6 @@ public class ManagementDB {
         return rows > 0;
     }
 
-    /**
-     * Deletes a subscriber by ID.
-     */
     public boolean deleteSubscriber(int subscriberId) throws SQLException {
         Connection conn = dbController.getConnection();
         String sql = "DELETE FROM subscribers WHERE id = ?";
@@ -303,7 +283,7 @@ public class ManagementDB {
         ps.close();
         return rows > 0;
     }
-    
+
     public boolean editGuide(int guideId, String name, String email,
             String phone, String password) throws SQLException {
         Connection conn = dbController.getConnection();
@@ -326,7 +306,6 @@ public class ManagementDB {
             ps.setString(3, phone);
             ps.setInt(4, guideId);
         }
-
         int rows = ps.executeUpdate();
         ps.close();
         return rows > 0;
@@ -348,5 +327,80 @@ public class ManagementDB {
         return rows > 0;
     }
     
+    public boolean registerVisitor(String firstName, String lastName, String idNumber,
+            String phone, String email) throws SQLException {
+        // Check if ID already exists
+        String checkSql = "SELECT id FROM visitors WHERE id_number = '" + idNumber + "'";
+        ArrayList<ArrayList<String>> check = dbController.executeQuery(checkSql);
+        if (check != null && !check.isEmpty()) {
+            return false; // already exists
+        }
+
+        String sql = "INSERT INTO visitors (id_number, first_name, last_name, phone, email) " +
+                     "VALUES ('" + idNumber + "', '" + firstName + "', '" + lastName + "', '" +
+                     phone + "', " + (email != null ? "'" + email + "'" : "NULL") + ")";
+        return dbController.executeUpdate(sql) > 0;
+    }
+
+    // Returns all requests for a specific park — all statuses
+    public ArrayList<ArrayList<String>> getAllRequestsByPark(int parkId) throws SQLException {
+        Connection conn = dbController.getConnection();
+
+        String sql = "SELECT pr.id, pr.park_id, pr.request_type, pr.new_value, pr.status, pr.created_at " +
+                     "FROM pending_requests pr " +
+                     "WHERE pr.park_id = ? " +
+                     "ORDER BY pr.created_at DESC";
+
+        PreparedStatement ps = conn.prepareStatement(sql);
+        ps.setInt(1, parkId);
+        ResultSet rs = ps.executeQuery();
+
+        ArrayList<ArrayList<String>> result = new ArrayList<>();
+        while (rs.next()) {
+            ArrayList<String> row = new ArrayList<>();
+            row.add(String.valueOf(rs.getInt(1)));
+            row.add(String.valueOf(rs.getInt(2)));
+            row.add(rs.getString(3));
+            row.add(String.valueOf(rs.getDouble(4)));
+            row.add(rs.getString(5));
+            row.add(String.valueOf(rs.getTimestamp(6)));
+            result.add(row);
+        }
+        rs.close(); ps.close();
+        return result;
+    }
+    
+    public boolean updateVisitor(int id, String firstName, String lastName, String phone, String email, String idNumber) throws SQLException {
+        String idPart = (idNumber != null && !idNumber.isEmpty()) ? ", id_number='" + idNumber + "'" : "";
+        String sql = "UPDATE visitors SET first_name='" + firstName + "', last_name='" + lastName +
+                     "', phone='" + phone + "', email='" + email + "'" + idPart + " WHERE id=" + id;
+        return dbController.executeUpdate(sql) > 0;
+    }
+
+    public boolean updateSubscriber(int id, String firstName, String lastName, String phone, String email, String idNumber) throws SQLException {
+        String idPart = (idNumber != null && !idNumber.isEmpty()) ? ", id_number='" + idNumber + "'" : "";
+        String sql = "UPDATE subscribers SET first_name='" + firstName + "', last_name='" + lastName +
+                     "', phone='" + phone + "', email='" + email + "'" + idPart + " WHERE id=" + id;
+        return dbController.executeUpdate(sql) > 0;
+    }
+
+    public boolean updateGuide(int id, String name, String username, String phone, String email, String password) throws SQLException {
+        String sql = (password != null && !password.isEmpty())
+            ? "UPDATE guides SET name='" + name + "', email='" + email + "', phone='" + phone +
+              "', username='" + username + "', password='" + password + "' WHERE id=" + id
+            : "UPDATE guides SET name='" + name + "', email='" + email + "', phone='" + phone +
+              "', username='" + username + "' WHERE id=" + id;
+        return dbController.executeUpdate(sql) > 0;
+    }
+
+    public boolean updateEmployee(int id, String firstName, String lastName, String email, String username, String password) throws SQLException {
+        String sql = (password != null && !password.isEmpty())
+            ? "UPDATE employees SET first_name='" + firstName + "', last_name='" + lastName +
+              "', email='" + email + "', username='" + username +
+              "', password='" + password + "' WHERE id=" + id
+            : "UPDATE employees SET first_name='" + firstName + "', last_name='" + lastName +
+              "', email='" + email + "', username='" + username + "' WHERE id=" + id;
+        return dbController.executeUpdate(sql) > 0;
+    }
     
 }

@@ -10,20 +10,20 @@ public class LoginResponse implements Serializable {
 
     private boolean success;
     private String message;
-    private String role;       // PARK_WORKER, PARK_MANAGER, etc. null for visitor
+    private String role;
     private UserType userType;
     private int userId;
     private String firstName;
     private String lastName;
     private String email;
-    private Integer parkId;    // only for PARK_WORKER and PARK_MANAGER
+    private Integer parkId;
+    private String parkName;
 
     public LoginResponse(boolean success, String message) {
         this.success = success;
         this.message = message;
     }
 
-    // getters and setters
     public boolean isSuccess() { return success; }
     public String getMessage() { return message; }
     public String getRole() { return role; }
@@ -38,6 +38,11 @@ public class LoginResponse implements Serializable {
     public void setLastName(String lastName) { this.lastName = lastName; }
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
-    public Integer getParkId() { return parkId; }
+    public Integer getParkId() { return parkId != null ? parkId : -1; }
     public void setParkId(Integer parkId) { this.parkId = parkId; }
+    public String getParkName() { return parkName != null ? parkName : ""; }
+    public void setParkName(String parkName) { this.parkName = parkName; }
+    private String username;
+    public String getUsername() { return username != null ? username : ""; }
+    public void setUsername(String username) { this.username = username; }
 }

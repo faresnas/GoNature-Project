@@ -13,10 +13,12 @@ import javafx.scene.control.DatePicker;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.TextField;
+import javafx.application.Platform;
 
 import java.sql.Date;
 import java.sql.Time;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -27,7 +29,10 @@ public class ReservationController {
     @FXML private ComboBox<String> timeBox;
     @FXML private Spinner<Integer> visitorsSpinner;
     @FXML private TextField emailField;
+    @FXML private javafx.scene.control.CheckBox prepaidCheck;
+    @FXML private javafx.scene.layout.VBox prepaidBox;
     private Reservation lastReservationAttempt;
+    @FXML private javafx.scene.control.Label availabilityLabel;
 
     private HashMap<String, Integer> parkIdMap = new HashMap<>();
 
@@ -35,23 +40,27 @@ public class ReservationController {
     public void initialize() {
         OrderClient.reservationController = this;
 
-        // Load time slots 08:00 to 18:00
         for (int h = 8; h <= 18; h++) {
             timeBox.getItems().add(String.format("%02d:00:00", h));
             if (h < 18) timeBox.getItems().add(String.format("%02d:30:00", h));
         }
         timeBox.getSelectionModel().selectFirst();
 
-        // Visitors spinner 1–50
+        // No min/max — we validate manually
         visitorsSpinner.setValueFactory(
-            new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 50, 1)
+            new SpinnerValueFactory.IntegerSpinnerValueFactory(Integer.MIN_VALUE, Integer.MAX_VALUE, 1)
         );
+        visitorsSpinner.setEditable(true);
 
-        // Request parks from server
         parkBox.getItems().clear();
-        ClientUI.client.requestParks();
+        OrderClient.lastCommand = "GET_PARKS";
+        Platform.runLater(() -> ClientUI.client.requestParks());
 
-        // Force ComboBox text to show correctly in dark theme
+        if (ClientUI.loggedInUser != null && "GUIDE".equals(ClientUI.loggedInUser.getRole())) {
+            prepaidBox.setVisible(true);
+            prepaidBox.setManaged(true);
+        }
+
         timeBox.setButtonCell(new javafx.scene.control.ListCell<>() {
             @Override
             protected void updateItem(String item, boolean empty) {
@@ -67,6 +76,47 @@ public class ReservationController {
                 super.updateItem(item, empty);
                 setText(empty || item == null ? "" : item);
                 setStyle("-fx-text-fill: white;");
+            }
+        });
+        parkBox.getSelectionModel().selectedItemProperty().addListener((obs, old, newVal) -> checkAvailability());
+        datePicker.valueProperty().addListener((obs, old, newVal) -> checkAvailability());
+        timeBox.getSelectionModel().selectedItemProperty().addListener((obs, old, newVal) -> checkAvailability());
+    }
+    
+    public void refreshAvailability() {
+        checkAvailability();
+    }
+    private void checkAvailability() {
+        if (parkBox.getValue() == null || datePicker.getValue() == null || timeBox.getValue() == null) {
+            availabilityLabel.setText("");
+            return;
+        }
+        Integer parkId = parkIdMap.get(parkBox.getValue());
+        if (parkId == null) return;
+
+        String date = datePicker.getValue().toString();
+        String time = timeBox.getValue();
+
+        OrderClient.lastCommand = "CHECK_AVAILABILITY";
+        ArrayList<Object> data = new ArrayList<>();
+        data.add(parkId);
+        data.add(date);
+        data.add(time);
+        try {
+            ClientUI.client.sendToServer(new Common.Chat("CHECK_AVAILABILITY", data));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void setAvailability(int booked, int available) {
+        Platform.runLater(() -> {
+            if (available <= 0) {
+                availabilityLabel.setText("⚠️ Park is FULL for this slot — " + booked + " booked");
+                availabilityLabel.setStyle("-fx-text-fill: #ff6b6b; -fx-font-size: 12; -fx-padding: 6 10; -fx-background-color: #0f2210; -fx-background-radius: 6;");
+            } else {
+                availabilityLabel.setText("✅ Available spots: " + available + "  |  Booked: " + booked);
+                availabilityLabel.setStyle("-fx-text-fill: #7ec87e; -fx-font-size: 12; -fx-padding: 6 10; -fx-background-color: #0f2210; -fx-background-radius: 6;");
             }
         });
     }
@@ -85,68 +135,89 @@ public class ReservationController {
     @FXML
     void submitReservation(ActionEvent event) {
         try {
+            // READ RAW TEXT FIRST before factory touches it
+            String rawVisitors = visitorsSpinner.getEditor().getText().trim();
+            int numVisitors;
+            try {
+                numVisitors = Integer.parseInt(rawVisitors);
+            } catch (NumberFormatException e) {
+                numVisitors = 0;
+            }
+
+            if (numVisitors < 1) {
+                showAlert(Alert.AlertType.ERROR, "Invalid Number of Visitors",
+                    "Number of visitors must be at least 1.");
+                return;
+            }
+
+            if (numVisitors > 15) {
+                showAlert(Alert.AlertType.ERROR, "Invalid Number of Visitors",
+                    "Maximum number of visitors is 15.");
+                return;
+            }
+
             // Empty field check
             if (parkBox.getValue() == null || datePicker.getValue() == null ||
                     timeBox.getValue() == null || emailField.getText().isEmpty()) {
-                Alert alert = new Alert(Alert.AlertType.WARNING);
-                alert.setTitle("Missing Fields");
-                alert.setHeaderText(null);
-                alert.setContentText("Please fill in all the fields in the reservation form.");
-                alert.showAndWait();
+                showAlert(Alert.AlertType.WARNING, "Missing Fields",
+                    "Please fill in all the fields in the reservation form.");
                 return;
             }
 
-            // Past date check
             LocalDate selectedDate = datePicker.getValue();
-            if (selectedDate.isBefore(LocalDate.now())) {
-                Alert alert = new Alert(Alert.AlertType.ERROR);
-                alert.setTitle("Invalid Date");
-                alert.setHeaderText(null);
-                alert.setContentText("Visit date cannot be in the past. Please choose a future date.");
-                alert.showAndWait();
+            LocalTime selectedTime = LocalTime.parse(timeBox.getValue().substring(0, 5));
+            LocalDate today = LocalDate.now();
+            LocalTime now = LocalTime.now();
+
+            if (selectedDate.isBefore(today)) {
+                showAlert(Alert.AlertType.ERROR, "Invalid Date",
+                    "Visit date cannot be in the past.");
                 return;
             }
 
-            // Email format check
-            if (!emailField.getText().matches("^[\\w._%+\\-]+@[\\w.\\-]+\\.[a-zA-Z]{2,}$")) {
-                Alert alert = new Alert(Alert.AlertType.ERROR);
-                alert.setTitle("Invalid Email");
-                alert.setHeaderText(null);
-                alert.setContentText("Please enter a valid email address.");
-                alert.showAndWait();
+            // Must be at least 24 hours from now
+            java.time.LocalDateTime selectedDateTime = java.time.LocalDateTime.of(selectedDate, selectedTime);
+            java.time.LocalDateTime minDateTime = java.time.LocalDateTime.now().plusHours(24);
+
+            if (selectedDateTime.isBefore(minDateTime)) {
+                showAlert(Alert.AlertType.ERROR, "Invalid Date/Time",
+                    "Reservations must be made at least 24 hours in advance.\n"    );
                 return;
             }
 
-            int numVisitors = visitorsSpinner.getValue();
+            if (!emailField.getText().matches("^[\\w._%+\\-]+@[\\w.\\-]+\\.[a-zA-Z]{2,4}$")) {
+                showAlert(Alert.AlertType.ERROR, "Invalid Email",
+                    "Please enter a valid email address (e.g. name@example.com).");
+                return;
+            }
 
             Reservation r = new Reservation();
 
             if (ClientUI.loggedInUser != null) {
                 r.setTravelerId(ClientUI.loggedInUser.getUserId());
 
+                String userType = ClientUI.loggedInUser.getUserType() != null
+                                  ? ClientUI.loggedInUser.getUserType().toString()
+                                  : "";
+
                 if ("GUIDE".equals(ClientUI.loggedInUser.getRole())) {
-                    if (numVisitors > 15) {
-                        Alert alert = new Alert(Alert.AlertType.ERROR);
-                        alert.setTitle("Group Limit Exceeded");
-                        alert.setHeaderText("Invalid Number of Visitors");
-                        alert.setContentText("An organized group reservation is limited to a maximum of 15 participants.");
-                        alert.showAndWait();
-                        return;
-                    }
                     r.setTravelerType("GUIDE");
                     r.setType("GROUP");
-                } else {
-                    if (ClientUI.loggedInUser.getRole() != null && !ClientUI.loggedInUser.getRole().isEmpty()) {
-                        r.setTravelerType(ClientUI.loggedInUser.getRole());
-                    } else {
-                        r.setTravelerType("VISITOR");
-                    }
+                    r.setPrepaid(prepaidCheck != null && prepaidCheck.isSelected());
+                } else if ("SUBSCRIBER".equals(userType)) {
+                    r.setTravelerType("SUBSCRIBER");
                     r.setType("INDIVIDUAL");
+                    r.setPrepaid(false);
+                } else {
+                    r.setTravelerType("VISITOR");
+                    r.setType("INDIVIDUAL");
+                    r.setPrepaid(false);
                 }
             } else {
                 r.setTravelerId(111111111);
                 r.setTravelerType("VISITOR");
                 r.setType("INDIVIDUAL");
+                r.setPrepaid(false);
             }
 
             r.setParkId(parkIdMap.get(parkBox.getValue()));
@@ -155,18 +226,13 @@ public class ReservationController {
             r.setNumVisitors(numVisitors);
             r.setEmail(emailField.getText());
             r.setStatus("PENDING");
-            r.setPrepaid(false);
-            
-            lastReservationAttempt = r;
 
+            lastReservationAttempt = r;
             ClientUI.client.createReservation(r);
 
         } catch (Exception e) {
-            Alert alert = new Alert(Alert.AlertType.ERROR);
-            alert.setTitle("Error");
-            alert.setHeaderText(null);
-            alert.setContentText("Something went wrong. Please check your inputs and try again.");
-            alert.showAndWait();
+            showAlert(Alert.AlertType.ERROR, "Error",
+                "Something went wrong. Please check your inputs and try again.");
             e.printStackTrace();
         }
     }
@@ -182,17 +248,21 @@ public class ReservationController {
             Scene scene = new Scene(loader.load());
             ClientUI.primaryStage.setScene(scene);
         } catch (Exception e) {
-            System.out.println("Failed to redirect back to dashboard");
             e.printStackTrace();
         }
     }
-    
+
     public void joinWaitingList() {
-
-        if(lastReservationAttempt != null) {
-
-            ClientUI.client.joinWaitingList(
-                lastReservationAttempt);
+        if (lastReservationAttempt != null) {
+            ClientUI.client.joinWaitingList(lastReservationAttempt);
         }
+    }
+
+    private void showAlert(Alert.AlertType type, String title, String content) {
+        Alert alert = new Alert(type);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(content);
+        alert.showAndWait();
     }
 }

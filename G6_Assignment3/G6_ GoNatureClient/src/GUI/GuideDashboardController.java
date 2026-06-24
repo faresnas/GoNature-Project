@@ -4,6 +4,8 @@ import Client.ClientUI;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.control.Label;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Scene;
 
 public class GuideDashboardController {
 
@@ -49,6 +51,27 @@ public class GuideDashboardController {
             e.printStackTrace();
         }
     }
+    @FXML
+    void editProfile(ActionEvent event) {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/GUI/EditProfile.fxml"));
+            Scene scene = new Scene(loader.load());
+            ClientUI.primaryStage.setScene(scene);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+    @FXML
+    void openWaitingList(ActionEvent event) {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/GUI/WaitingList.fxml"));
+            Scene scene = new Scene(loader.load());
+            ClientUI.primaryStage.setScene(scene);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+    
     
     @FXML void logout(ActionEvent event)          { LogoutHelper.logout(); }
     @FXML void exit(ActionEvent event) {

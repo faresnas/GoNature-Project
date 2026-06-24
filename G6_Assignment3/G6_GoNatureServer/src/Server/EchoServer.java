@@ -10,10 +10,11 @@ import ocsf.server.ConnectionToClient;
 import data.Reservation;
 
 public class EchoServer extends AbstractServer {
-	private EntryExitDB entryExitDB = new EntryExitDB();
+    private EntryExitDB entryExitDB = new EntryExitDB();
     private DBController dbController;
     private ReservationDB reservationDB;
     private ManagementDB managementDB;
+    private ReportsDB reportsDB;
     private OrderDB orderDB;
     private java.util.Timer connectionTimer;
     private Map<String, ConnectionToClient> activeSessions = new ConcurrentHashMap<>();
@@ -48,6 +49,10 @@ public class EchoServer extends AbstractServer {
         if (logCallback != null) {
             logCallback.log(msg);
         }
+    }
+    
+    public interface NotificationCallback {
+        void notifyUser(String username, Object message);
     }
 
     private void handleDisconnect(ConnectionToClient client) {
@@ -89,12 +94,32 @@ public class EchoServer extends AbstractServer {
             logMessage("[ERROR] Broadcast failed: " + e.getMessage());
         }
     }
+    
+    private void broadcastRefreshRequests() {
+        try {
+            Thread[] clients = getClientConnections();
+            for (Thread t : clients) {
+                ConnectionToClient c = (ConnectionToClient) t;
+                try {
+                    c.sendToClient("REFRESH_REQUESTS");
+                } catch (Exception ex) {
+                    logMessage("[ERROR] Failed to push refresh to client: " + ex.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            logMessage("[ERROR] broadcastRefreshRequests failed: " + e.getMessage());
+        }
+    }
 
     private LoginResponse handleLogin(ArrayList<String> loginData, ConnectionToClient client) {
         String loginType = loginData.get(0);
 
         if (loginType.equals("VISITOR")) {
             String idNumber = loginData.get(1);
+
+            if (activeSessions.containsKey(idNumber)) {
+                return new LoginResponse(false, "This user is already logged in.");
+            }
 
             String sql = "SELECT * FROM visitors WHERE id_number = '" + idNumber + "'";
             ArrayList<ArrayList<String>> result = dbController.executeQuery(sql);
@@ -106,6 +131,8 @@ public class EchoServer extends AbstractServer {
                 res.setFirstName(row.get(2));
                 res.setLastName(row.get(3));
                 res.setEmail(row.get(5));
+                activeSessions.put(idNumber, client);
+                client.setInfo("username", idNumber);
                 return res;
             }
 
@@ -119,6 +146,8 @@ public class EchoServer extends AbstractServer {
                 res.setFirstName(row.get(1));
                 res.setLastName(row.get(2));
                 res.setEmail(row.get(5));
+                activeSessions.put(idNumber, client);
+                client.setInfo("username", idNumber);
                 return res;
             }
 
@@ -151,9 +180,17 @@ public class EchoServer extends AbstractServer {
                 res.setRole(actualRole);
                 String parkIdStr = row.get(6);
                 if (parkIdStr != null && !parkIdStr.equals("NULL") && !parkIdStr.isEmpty()) {
-                    res.setParkId(Integer.parseInt(parkIdStr));
+                    int pid = Integer.parseInt(parkIdStr);
+                    res.setParkId(pid);
+                    ArrayList<ArrayList<String>> parkResult = dbController.executeQuery(
+                        "SELECT name FROM parks WHERE id = " + pid);
+                    if (parkResult != null && !parkResult.isEmpty()) {
+                        res.setParkName(parkResult.get(0).get(0));
+                    }
                 }
                 logMessage("[LOGIN] " + username + " logged in as " + actualRole);
+                activeSessions.put(username, client);
+                client.setInfo("username", username);
                 return res;
             }
             return new LoginResponse(false, "Invalid username or password.");
@@ -178,6 +215,8 @@ public class EchoServer extends AbstractServer {
                 res.setFirstName(row.get(1));
                 res.setEmail(row.get(2));
                 logMessage("[LOGIN] " + username + " logged in as GUIDE");
+                activeSessions.put(username, client);
+                client.setInfo("username", username);
                 return res;
             }
             return new LoginResponse(false, "Invalid username or password.");
@@ -198,55 +237,41 @@ public class EchoServer extends AbstractServer {
                 logMessage("[REQUEST] " + clientIP + " → LOGIN_REQUEST");
                 ArrayList<String> loginData = (ArrayList<String>) request.getData();
                 LoginResponse response = handleLogin(loginData, client);
-
-                if (response.isSuccess() && response.getRole() != null) {
-                    activeSessions.put(loginData.get(1), client);
-                    client.setInfo("username", loginData.get(1));
-                }
-
                 client.sendToClient(response);
-                
 
             } else if (command.equals("ENTRY_WITH_RESERVATION")) {
                 logMessage("[REQUEST] " + clientIP + " → ENTRY_WITH_RESERVATION");
-
                 String identifier = (String) request.getData();
                 Common.EntryExitResponse response = entryExitDB.approveReservationEntry(identifier);
                 client.sendToClient(response);
 
             } else if (command.equals("WALK_IN_ENTRY")) {
                 logMessage("[REQUEST] " + clientIP + " → WALK_IN_ENTRY");
-
                 ArrayList<Object> data = (ArrayList<Object>) request.getData();
                 int parkId = (int) data.get(0);
                 int numVisitors = (int) data.get(1);
                 String visitorType = (String) data.get(2);
-
                 Common.EntryExitResponse response =
                         entryExitDB.approveWalkInEntry(parkId, numVisitors, visitorType);
                 client.sendToClient(response);
 
             } else if (command.equals("REGISTER_EXIT")) {
                 logMessage("[REQUEST] " + clientIP + " → REGISTER_EXIT");
-
-                int visitId = (int) request.getData();
-                Common.EntryExitResponse response = entryExitDB.registerExit(visitId);
+                String identifier = (String) request.getData();
+                Common.EntryExitResponse response = entryExitDB.registerExit(identifier);
                 client.sendToClient(response);
 
             } else if (command.equals("REGISTER_MANUAL_EXIT")) {
                 logMessage("[REQUEST] " + clientIP + " → REGISTER_MANUAL_EXIT");
-
                 ArrayList<Object> data = (ArrayList<Object>) request.getData();
                 int parkId = (int) data.get(0);
                 int numVisitors = (int) data.get(1);
-
                 Common.EntryExitResponse response =
                         entryExitDB.registerManualExit(parkId, numVisitors);
                 client.sendToClient(response);
 
             } else if (command.equals("GET_CURRENT_VISITORS")) {
                 logMessage("[REQUEST] " + clientIP + " → GET_CURRENT_VISITORS");
-
                 int parkId = (int) request.getData();
                 Common.EntryExitResponse response = entryExitDB.getCurrentVisitorsResponse(parkId);
                 client.sendToClient(response);
@@ -254,18 +279,13 @@ public class EchoServer extends AbstractServer {
             } else if (command.equals("LOGOUT_REQUEST")) {
                 logMessage("[REQUEST] " + clientIP + " → LOGOUT_REQUEST");
                 String username = (String) client.getInfo("username");
-
                 if (username != null) {
                     activeSessions.remove(username);
                     client.setInfo("username", null);
                     logMessage("[LOGOUT] " + username + " logged out");
                 }
-
                 handleDisconnect(client);
-
-                try {
-                    client.close();
-                } catch (Exception e) {
+                try { client.close(); } catch (Exception e) {
                     logMessage("[ERROR] Failed to close client after logout: " + e.getMessage());
                 }
 
@@ -278,17 +298,12 @@ public class EchoServer extends AbstractServer {
             } else if (command.equals("UPDATE_ORDER")) {
                 logMessage("[REQUEST] " + clientIP + " → UPDATE_ORDER");
                 ArrayList<Object> updateData = (ArrayList<Object>) request.getData();
-
                 int id = (int) updateData.get(0);
                 String newDate = (String) updateData.get(1);
                 int visitors = (int) updateData.get(2);
-
                 boolean updateResult = orderDB.updateQuery(id, newDate, visitors);
                 client.sendToClient(updateResult);
-
-                if (updateResult) {
-                    broadcastUpdatedOrders(client);
-                }
+                if (updateResult) broadcastUpdatedOrders(client);
 
             } else if (command.equals("CREATE_RESERVATION")) {
                 logMessage("[REQUEST] " + clientIP + " → CREATE_RESERVATION");
@@ -330,11 +345,19 @@ public class EchoServer extends AbstractServer {
                 logMessage("[REQUEST] " + clientIP + " → GET_PARKS");
                 ArrayList<ArrayList<String>> parks = reservationDB.getParks();
                 client.sendToClient(parks);
-                
-            } else if(command.equals("JOIN_WAITING_LIST")) {
 
-                Reservation reservation =(Reservation) request.getData();
+            } else if (command.equals("JOIN_WAITING_LIST")) {
+                Reservation reservation = (Reservation) request.getData();
                 boolean result = reservationDB.addToWaitingList(reservation);
+                client.sendToClient(result);
+              
+
+            } else if (command.equals("CONFIRM_REMINDER")) {
+                ArrayList<Object> data = (ArrayList<Object>) request.getData();
+                int reservationId = (int) data.get(0);
+                int travelerId = (int) data.get(1);
+                String travelerType = (String) data.get(2);
+                boolean result = reservationDB.confirmReminder(reservationId, travelerId, travelerType);
                 client.sendToClient(result);
 
             } else if (command.equals("REGISTER_SUBSCRIBER")) {
@@ -357,9 +380,10 @@ public class EchoServer extends AbstractServer {
                 String name     = (String) data.get(0);
                 String email    = (String) data.get(1);
                 String phone    = (String) data.get(2);
-                String username = (String) data.get(3);
-                String password = (String) data.get(4);
-                boolean result = managementDB.registerGuide(name, email, phone, username, password);
+                String idNumber = (String) data.get(3);
+                String username = (String) data.get(4);
+                String password = (String) data.get(5);
+                int result = managementDB.registerGuide(name, email, phone, idNumber, username, password);
                 client.sendToClient(result);
 
             } else if (command.equals("REQUEST_PARK_UPDATE")) {
@@ -371,10 +395,17 @@ public class EchoServer extends AbstractServer {
                 int requestedBy = (int)    data.get(3);
                 boolean result = managementDB.submitParkUpdateRequest(parkId, reqType, newValue, requestedBy);
                 client.sendToClient(result);
+                if (result) broadcastRefreshRequests();
 
             } else if (command.equals("GET_PENDING_REQUESTS")) {
                 logMessage("[REQUEST] " + clientIP + " → GET_PENDING_REQUESTS");
                 ArrayList<ArrayList<String>> requests = managementDB.getPendingRequests();
+                client.sendToClient(requests);
+
+            } else if (command.equals("GET_PARK_REQUESTS")) {
+                logMessage("[REQUEST] " + clientIP + " → GET_PARK_REQUESTS");
+                int parkId = (int) request.getData();
+                ArrayList<ArrayList<String>> requests = managementDB.getAllRequestsByPark(parkId);
                 client.sendToClient(requests);
 
             } else if (command.equals("APPROVE_REQUEST")) {
@@ -382,13 +413,15 @@ public class EchoServer extends AbstractServer {
                 int requestId = (int) request.getData();
                 boolean result = managementDB.approveRequest(requestId);
                 client.sendToClient(result);
-
+                if (result) broadcastRefreshRequests();
+                
             } else if (command.equals("REJECT_REQUEST")) {
                 logMessage("[REQUEST] " + clientIP + " → REJECT_REQUEST");
                 int requestId = (int) request.getData();
                 boolean result = managementDB.rejectRequest(requestId);
                 client.sendToClient(result);
-
+                if (result) broadcastRefreshRequests();
+                
             } else if (command.equals("GET_ALL_GUIDES")) {
                 logMessage("[REQUEST] " + clientIP + " → GET_ALL_GUIDES");
                 ArrayList<ArrayList<String>> guides = managementDB.getAllGuides();
@@ -412,7 +445,6 @@ public class EchoServer extends AbstractServer {
                 client.sendToClient(result);
 
             } else if (command.equals("EDIT_GUIDE")) {
-                logMessage("[REQUEST] " + clientIP + " → EDIT_GUIDE");
                 ArrayList<Object> data = (ArrayList<Object>) request.getData();
                 int guideId     = (int)    data.get(0);
                 String name     = (String) data.get(1);
@@ -434,50 +466,222 @@ public class EchoServer extends AbstractServer {
                 boolean result   = managementDB.editSubscriber(
                         subscriberId, firstName, lastName, phone, email, familySize);
                 client.sendToClient(result);
-                
-            } else if (command.equals("CONFIRM_REMINDER")) {
-                ArrayList<Object> data = (ArrayList<Object>) request.getData();
-                int reservationId = (int) data.get(0);
-                int travelerId = (int) data.get(1);
-                String travelerType = (String) data.get(2);
 
-                boolean result = reservationDB.confirmReminder(reservationId, travelerId, travelerType);
+            } else if (command.equals("GET_VISITS_REPORT")) {
+                logMessage("[REQUEST] " + clientIP + " → GET_VISITS_REPORT");
+                ArrayList<Object> data = (ArrayList<Object>) request.getData();
+                int parkId = (int) data.get(0);
+                int month  = (int) data.get(1);
+                int year   = (int) data.get(2);
+                ArrayList<ArrayList<String>> report = reportsDB.getVisitsReportByPark(parkId, month, year);
+                client.sendToClient(report);
+
+            } else if (command.equals("GET_VISITS_REPORT_ALL")) {
+                logMessage("[REQUEST] " + clientIP + " → GET_VISITS_REPORT_ALL");
+                ArrayList<Object> data = (ArrayList<Object>) request.getData();
+                int month = (int) data.get(0);
+                int year  = (int) data.get(1);
+                ArrayList<ArrayList<String>> report = reportsDB.getVisitsReportAllParks(month, year);
+                client.sendToClient(report);
+
+            } else if (command.equals("GET_USAGE_REPORT")) {
+                logMessage("[REQUEST] " + clientIP + " → GET_USAGE_REPORT");
+                ArrayList<Object> data = (ArrayList<Object>) request.getData();
+                int parkId = (int) data.get(0);
+                int month  = (int) data.get(1);
+                int year   = (int) data.get(2);
+                ArrayList<ArrayList<String>> report = reportsDB.getUsageReport(parkId, month, year);
+                client.sendToClient(report);
+
+            } else if (command.equals("GET_CANCELLATIONS_REPORT")) {
+                logMessage("[REQUEST] " + clientIP + " → GET_CANCELLATIONS_REPORT");
+                ArrayList<Object> data = (ArrayList<Object>) request.getData();
+                int month = (int) data.get(0);
+                int year  = (int) data.get(1);
+                ArrayList<ArrayList<String>> report = reportsDB.getCancellationsReport(month, year);
+                client.sendToClient(report);
+            } else if (command.equals("UPDATE_PROFILE")) {
+                logMessage("[REQUEST] " + clientIP + " → UPDATE_PROFILE");
+                ArrayList<Object> data = (ArrayList<Object>) request.getData();
+                String role = (String) data.get(0);
+                int userId  = (int)    data.get(1);
+                boolean result = false;
+                switch (role) {
+                case "VISITOR": {
+                    String firstName = (String) data.get(2);
+                    String lastName  = (String) data.get(3);
+                    String phone     = (String) data.get(4);
+                    String email     = (String) data.get(5);
+                    String idNumber  = (String) data.get(6);
+                    result = managementDB.updateVisitor(userId, firstName, lastName, phone, email, idNumber);
+                    break;
+                }
+                case "SUBSCRIBER": {
+                    String firstName = (String) data.get(2);
+                    String lastName  = (String) data.get(3);
+                    String phone     = (String) data.get(4);
+                    String email     = (String) data.get(5);
+                    String idNumber  = (String) data.get(6);
+                    result = managementDB.updateSubscriber(userId, firstName, lastName, phone, email, idNumber);
+                    break;
+                }
+                case "GUIDE": {
+                    String name     = (String) data.get(2);
+                    String username = (String) data.get(3);
+                    String phone    = (String) data.get(4);
+                    String email    = (String) data.get(5);
+                    String password = (String) data.get(6);
+                    result = managementDB.updateGuide(userId, name, username, phone, email, password);
+                    break;
+                }
+                case "EMPLOYEE": {
+                    String firstName = (String) data.get(2);
+                    String lastName  = (String) data.get(3);
+                    String email     = (String) data.get(4);
+                    String username  = (String) data.get(5);
+                    String password  = (String) data.get(6);
+                    result = managementDB.updateEmployee(userId, firstName, lastName, email, username, password);
+                    break;
+                }
+                }
+                client.sendToClient(result);
+            } else if (command.equals("CHECK_REMINDERS")) {
+                logMessage("[REQUEST] " + clientIP + " → CHECK_REMINDERS");
+                ArrayList<Object> data = (ArrayList<Object>) request.getData();
+                int travelerId      = (int)    data.get(0);
+                String travelerType = (String) data.get(1);
+                reservationDB.sendVisitRemindersForUser(travelerId, travelerType);
+                reservationDB.autoCancelUnconfirmedReservations();
+                ArrayList<ArrayList<String>> reminders =
+                    reservationDB.getPendingReminders(travelerId, travelerType);
+                // Also check waiting list notifications
+                ArrayList<ArrayList<String>> waitingNotifications =
+                    reservationDB.getPendingWaitingListNotifications(travelerId, travelerType);
+                // Combine both into one response — prefix waiting list rows with "WL:"
+                for (ArrayList<String> row : waitingNotifications) {
+                    row.add(0, "WL"); // mark as waiting list notification
+                    reminders.add(row);
+                }
+                client.sendToClient(reminders);
+            } else if (command.equals("REGISTER_VISITOR")) {
+                logMessage("[REQUEST] " + clientIP + " → REGISTER_VISITOR");
+                ArrayList<Object> data = (ArrayList<Object>) request.getData();
+                String firstName = (String) data.get(0);
+                String lastName  = (String) data.get(1);
+                String idNumber  = (String) data.get(2);
+                String phone     = (String) data.get(3);
+                String email     = (String) data.get(4);
+                boolean result   = managementDB.registerVisitor(firstName, lastName, idNumber, phone, email);
                 client.sendToClient(result);
 
-            } else if (command.equals("CLIENT_EXIT")) {
+            } else if (command.equals("CONFIRM_WAITING_LIST")) {
+                logMessage("[REQUEST] " + clientIP + " → CONFIRM_WAITING_LIST");
+                ArrayList<Object> data = (ArrayList<Object>) request.getData();
+                int waitingListId = (int) data.get(0);
+                int travelerId    = (int) data.get(1);
+                String travelerType = (String) data.get(2);
+                boolean result = reservationDB.confirmFromWaitingList(waitingListId, travelerId, travelerType);
+                client.sendToClient(result);
+
+            } else if (command.equals("DECLINE_WAITING_LIST")) {
+                logMessage("[REQUEST] " + clientIP + " → DECLINE_WAITING_LIST");
+                int waitingListId = (int) request.getData();
+                boolean result = reservationDB.declineWaitingList(waitingListId);
+                client.sendToClient(result);
+            } else if (command.equals("GET_WAITING_LIST")) {
+                logMessage("[REQUEST] " + clientIP + " → GET_WAITING_LIST");
+                ArrayList<Object> data = (ArrayList<Object>) request.getData();
+                int travelerId      = (int)    data.get(0);
+                String travelerType = (String) data.get(1);
+                ArrayList<ArrayList<String>> waitingList =
+                    reservationDB.getWaitingListByTraveler(travelerId, travelerType);
+                client.sendToClient(waitingList);
+
+            } else if (command.equals("LEAVE_WAITING_LIST")) {
+                logMessage("[REQUEST] " + clientIP + " → LEAVE_WAITING_LIST");
+                int waitingListId = (int) request.getData();
+                boolean result = reservationDB.leaveWaitingList(waitingListId);
+                client.sendToClient(result);
+            } else if (command.equals("GET_VISITOR_COUNT_REPORT")) {
+                logMessage("[REQUEST] " + clientIP + " → GET_VISITOR_COUNT_REPORT");
+                ArrayList<Object> data = (ArrayList<Object>) request.getData();
+                int parkId = (int) data.get(0);
+                int month  = (int) data.get(1);
+                int year   = (int) data.get(2);
+                ArrayList<ArrayList<String>> report = reportsDB.getVisitorCountByPark(parkId, month, year);
+                client.sendToClient(report);
+
+            } else if (command.equals("GET_VISITOR_COUNT_REPORT_ALL")) {
+                logMessage("[REQUEST] " + clientIP + " → GET_VISITOR_COUNT_REPORT_ALL");
+                ArrayList<Object> data = (ArrayList<Object>) request.getData();
+                int month = (int) data.get(0);
+                int year  = (int) data.get(1);
+                ArrayList<ArrayList<String>> report = reportsDB.getVisitorCountAllParks(month, year);
+                client.sendToClient(report);
+            } else if (command.equals("GET_CANCELLATIONS_REPORT_BY_PARK")) {
+                logMessage("[REQUEST] " + clientIP + " → GET_CANCELLATIONS_REPORT_BY_PARK");
+                ArrayList<Object> data = (ArrayList<Object>) request.getData();
+                int parkId = (int) data.get(0);
+                int month  = (int) data.get(1);
+                int year   = (int) data.get(2);
+                ArrayList<ArrayList<String>> report = reportsDB.getCancellationsReportByPark(parkId, month, year);
+                client.sendToClient(report);
+            } else if (command.equals("CHECK_AVAILABILITY")) {
+                logMessage("[REQUEST] " + clientIP + " → CHECK_AVAILABILITY");
+                ArrayList<Object> data = (ArrayList<Object>) request.getData();
+                int parkId   = (int)    data.get(0);
+                String date  = (String) data.get(1);
+                String time  = (String) data.get(2);
+                ArrayList<Integer> result = reservationDB.getAvailability(parkId, date, time);
+                client.sendToClient(result);
+                
+            }else if (command.equals("CLIENT_EXIT")) {
                 handleDisconnect(client);
 
             } else {
                 logMessage("[WARNING] " + clientIP + " → unknown command: " + command);
-                client.sendToClient(false);  
-            } 
+                client.sendToClient(false);
+            }
 
         } catch (Exception e) {
             logMessage("[ERROR] " + e.getMessage());
             e.printStackTrace();
         }
     }
+
     @Override
     protected void serverStarted() {
         dbController = DBController.getInstance();
         orderDB = new OrderDB(dbController);
         reservationDB = new ReservationDB(dbController);
+        entryExitDB = new EntryExitDB();
+
+        // Pass notification callback so ReservationDB can push to active clients
+        reservationDB.setNotificationCallback((username, message) -> {
+            broadcastToUser(username, message);
+        });
+
+        // Pass visitor count callback so EntryExitDB can push live updates to all clients
+        entryExitDB.setVisitorCountCallback((parkId, currentCount, availableSpots) -> {
+            broadcastVisitorCount(parkId, currentCount, availableSpots);
+        });
+
         ReminderService reminderService = new ReminderService(reservationDB);
+        reminderService.setDaemon(true);
         reminderService.start();
+        AutoExitService autoExitService = new AutoExitService(reservationDB, entryExitDB);
+        autoExitService.setDaemon(true);
+        autoExitService.start();
         managementDB = new ManagementDB(dbController);
+        reportsDB = new ReportsDB(dbController);
         logMessage("[SERVER] GoNature Server is listening on port " + getPort());
 
         connectionTimer = new java.util.Timer();
         connectionTimer.schedule(new java.util.TimerTask() {
-            @Override
-            public void run() {
+            @Override public void run() {
                 if (getNumberOfClients() == 0) {
                     logMessage("[SERVER] No clients connected after 1 minute — shutting down.");
-                    try {
-                        close();
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+                    try { close(); } catch (Exception e) { e.printStackTrace(); }
                 }
             }
         }, 60000);
@@ -498,6 +702,38 @@ public class EchoServer extends AbstractServer {
             clientListCallback.onClientConnected(clientId, ip, host);
         }
     }
+    private void broadcastToUser(String username, Object message) {
+        ConnectionToClient target = activeSessions.get(username);
+        if (target != null) {
+            try {
+                target.sendToClient(message);
+                logMessage("[PUSH] Sent waiting list notification to: " + username);
+            } catch (Exception e) {
+                logMessage("[ERROR] Failed to push to user " + username + ": " + e.getMessage());
+            }
+        }
+    }
+    
+    private void broadcastVisitorCount(int parkId, int currentCount, int availableSpots) {
+        try {
+            ArrayList<Object> payload = new ArrayList<>();
+            payload.add("VISITOR_COUNT_UPDATE");
+            payload.add(parkId);
+            payload.add(currentCount);
+            payload.add(availableSpots);
+            Thread[] clients = getClientConnections();
+            for (Thread t : clients) {
+                ConnectionToClient c = (ConnectionToClient) t;
+                try {
+                    c.sendToClient(payload);
+                } catch (Exception ex) {
+                    // silent
+                }
+            }
+        } catch (Exception e) {
+            // silent
+        }
+    }
 
     @Override
     protected void clientDisconnected(ConnectionToClient client) {
@@ -507,18 +743,14 @@ public class EchoServer extends AbstractServer {
     @Override
     protected void clientException(ConnectionToClient client, Throwable exception) {
         handleDisconnect(client);
-        try {
-            client.close();
-        } catch (Exception e) {
+        try { client.close(); } catch (Exception e) {
             logMessage("[ERROR] Failed to close dropped client: " + e.getMessage());
         }
     }
 
     @Override
     protected void serverStopped() {
-        if (dbController != null) {
-            dbController.closeAll();
-        }
+        if (dbController != null) dbController.closeAll();
         logMessage("[SERVER] GoNature Server stopped listening.");
     }
 }

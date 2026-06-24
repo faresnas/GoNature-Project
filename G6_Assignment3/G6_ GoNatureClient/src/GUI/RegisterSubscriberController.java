@@ -22,9 +22,11 @@ public class RegisterSubscriberController {
 
     @FXML
     public void initialize() {
+        // No min/max — we validate manually so negative values show error instead of clamping
         familySizeSpinner.setValueFactory(
-            new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 20, 1)
+            new SpinnerValueFactory.IntegerSpinnerValueFactory(Integer.MIN_VALUE, Integer.MAX_VALUE, 1)
         );
+        familySizeSpinner.setEditable(true);
     }
 
     @FXML
@@ -34,10 +36,29 @@ public class RegisterSubscriberController {
         String idNumber   = idNumberField.getText().trim();
         String phone      = phoneField.getText().trim();
         String email      = emailField.getText().trim();
-        int familySize    = familySizeSpinner.getValue();
         String creditCard = creditCardField.getText().trim();
 
-        // Empty field check (credit card is optional)
+        // Read raw spinner text
+        String rawFamily = familySizeSpinner.getEditor().getText().trim();
+        int familySize;
+        try {
+            familySize = Integer.parseInt(rawFamily);
+        } catch (NumberFormatException e) {
+            familySize = 0;
+        }
+
+        if (familySize < 1) {
+            showAlert(Alert.AlertType.ERROR, "Invalid Family Size",
+                "Family size must be at least 1.");
+            return;
+        }
+
+        if (familySize > 15) {
+            showAlert(Alert.AlertType.ERROR, "Invalid Family Size",
+                "Family size cannot exceed 20.");
+            return;
+        }
+
         if (firstName.isEmpty() || lastName.isEmpty() || idNumber.isEmpty() ||
                 phone.isEmpty() || email.isEmpty()) {
             showAlert(Alert.AlertType.WARNING, "Missing Fields",
@@ -45,21 +66,18 @@ public class RegisterSubscriberController {
             return;
         }
 
-        // Email format check
-        if (!email.matches("^[\\w._%+\\-]+@[\\w.\\-]+\\.[a-zA-Z]{2,}$")) {
+        if (!email.matches("^[\\w._%+\\-]+@[\\w.\\-]+\\.[a-zA-Z]{2,4}$")) {
             showAlert(Alert.AlertType.ERROR, "Invalid Email",
                 "Please enter a valid email address.");
             return;
         }
 
-        // ID number — digits only
         if (!idNumber.matches("\\d+")) {
             showAlert(Alert.AlertType.ERROR, "Invalid ID",
                 "ID number must contain digits only.");
             return;
         }
 
-        // Phone — digits only
         if (!phone.matches("\\d+")) {
             showAlert(Alert.AlertType.ERROR, "Invalid Phone",
                 "Phone number must contain digits only.");

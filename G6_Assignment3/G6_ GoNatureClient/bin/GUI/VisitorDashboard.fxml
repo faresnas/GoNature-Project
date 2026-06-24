@@ -10,8 +10,8 @@
 
     <Label text="🌿 GoNature"
            style="-fx-font-size: 24; -fx-font-weight: bold; -fx-text-fill: #f5f0e8;"/>
-    <Label text="Visitor Dashboard"
-           style="-fx-font-size: 13; -fx-text-fill: #c8e6c9;"/>
+    <Label fx:id="lblDashboard" text="Visitor Dashboard"
+     	  style="-fx-font-size: 13; -fx-text-fill: #c8e6c9;"/>
     <Label fx:id="lblWelcome" text="Welcome"
            style="-fx-font-size: 14; -fx-font-weight: bold; -fx-text-fill: #f0c040;"/>
 
@@ -24,12 +24,19 @@
             style="-fx-background-color: #6d4c1f; -fx-text-fill: white; -fx-font-size: 13;
                    -fx-font-weight: bold; -fx-border-radius: 5; -fx-background-radius: 5;
                    -fx-padding: 10 30 10 30; -fx-cursor: hand;" prefWidth="260"/>
-
+	<Button text="📋 My Waiting List" onAction="#openWaitingList"
+        style="-fx-background-color: #4a7c3f; -fx-text-fill: white; -fx-font-size: 13;
+               -fx-font-weight: bold; -fx-border-radius: 5; -fx-background-radius: 5;
+               -fx-padding: 10 30 10 30; -fx-cursor: hand;" prefWidth="260"/>
+               
     <Button text="🔓 Logout" onAction="#logout"
             style="-fx-background-color: #8b3a3a; -fx-text-fill: white; -fx-font-size: 12;
                    -fx-border-radius: 5; -fx-background-radius: 5;
                    -fx-padding: 8 20 8 20; -fx-cursor: hand;" prefWidth="260"/>
-
+	<Button text="👤 Edit My Profile" onAction="#editProfile"
+        style="-fx-background-color: #4a7c3f; -fx-text-fill: white; -fx-font-size: 13;
+               -fx-font-weight: bold; -fx-border-radius: 5; -fx-background-radius: 5;
+               -fx-padding: 10 30 10 30; -fx-cursor: hand;" prefWidth="260"/>
     <Button text="Exit" onAction="#exit"
             style="-fx-background-color: #1b3a17; -fx-text-fill: white; -fx-font-size: 12;
                    -fx-border-radius: 5; -fx-background-radius: 5;
