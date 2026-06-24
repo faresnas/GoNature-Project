@@ -38,10 +38,16 @@
     <VBox spacing="10" style="-fx-padding: 0 40 0 40;">
 
         <VBox spacing="4">
-            <Label text="Full Name" style="-fx-text-fill: #a5c8a5; -fx-font-size: 12; -fx-font-weight: bold;" />
-            <TextField fx:id="nameField" promptText="Guide full name"
-                       style="-fx-background-color: #1e4a1e; -fx-text-fill: white; -fx-prompt-text-fill: #5a8a5a; -fx-background-radius: 7; -fx-border-color: #3a6b3a; -fx-border-radius: 7; -fx-padding: 8 10;" />
-        </VBox>
+    	<Label text="Full Name" style="-fx-text-fill: #a5c8a5; -fx-font-size: 12; -fx-font-weight: bold;" />
+    		<TextField fx:id="nameField" promptText="Guide full name"
+               style="-fx-background-color: #1e4a1e; -fx-text-fill: white; -fx-prompt-text-fill: #5a8a5a; -fx-background-radius: 7; -fx-border-color: #3a6b3a; -fx-border-radius: 7; -fx-padding: 8 10;" />
+		</VBox>
+
+		<VBox spacing="4">
+   		 <Label text="ID Number" style="-fx-text-fill: #a5c8a5; -fx-font-size: 12; -fx-font-weight: bold;" />
+   		 <TextField fx:id="idNumberField" promptText="e.g. 123456789"
+               style="-fx-background-color: #1e4a1e; -fx-text-fill: white; -fx-prompt-text-fill: #5a8a5a; -fx-background-radius: 7; -fx-border-color: #3a6b3a; -fx-border-radius: 7; -fx-padding: 8 10;" />
+			</VBox>
 
         <VBox spacing="4">
             <Label text="Email" style="-fx-text-fill: #a5c8a5; -fx-font-size: 12; -fx-font-weight: bold;" />

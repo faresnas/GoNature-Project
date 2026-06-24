@@ -90,7 +90,7 @@
             </VBox>
             <VBox spacing="4">
                 <Label text="Family Size" style="-fx-text-fill: #a5c8a5; -fx-font-size: 11;" />
-                <Spinner fx:id="editFamilySizeSpinner" prefWidth="80" min="1" max="20"
+                <Spinner fx:id="editFamilySizeSpinner" prefWidth="80" min="1" max="15"
                          initialValue="1" editable="true"
                          style="-fx-background-color: #1e4a1e; -fx-background-radius: 6; -fx-border-color: #3a6b3a; -fx-border-radius: 6;" />
             </VBox>

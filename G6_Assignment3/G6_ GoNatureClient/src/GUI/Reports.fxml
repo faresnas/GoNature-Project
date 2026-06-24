@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.chart.*?>
+<?import javafx.geometry.*?>
+
+<VBox xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="GUI.ReportsController"
+      style="-fx-background-color: #1a2e1a;"
+      spacing="10"
+      minWidth="800"
+      minHeight="600">
+
+    <padding><Insets top="20" right="24" bottom="16" left="24"/></padding>
+
+    <HBox alignment="CENTER_LEFT" spacing="16">
+    <Label text="📊 Reports"
+           style="-fx-text-fill: #a8d5a2; -fx-font-size: 24px; -fx-font-weight: bold;"/>
+    <Region HBox.hgrow="ALWAYS"/>
+    <Label text="Month:" style="-fx-text-fill: #a8d5a2; -fx-font-size: 13px;"/>
+    <ComboBox fx:id="monthBox" prefWidth="130"
+              style="-fx-background-color: #2d5a27; -fx-text-fill: white;"/>
+    <Label text="Year:" style="-fx-text-fill: #a8d5a2; -fx-font-size: 13px;"/>
+    <ComboBox fx:id="yearBox" prefWidth="85"
+              style="-fx-background-color: #2d5a27; -fx-text-fill: white;"/>
+    <Label fx:id="lblPark" text="Park:" style="-fx-text-fill: #a8d5a2; -fx-font-size: 13px;"
+           visible="false" managed="false"/>
+    <ComboBox fx:id="parkBox" prefWidth="180"
+              style="-fx-background-color: #2d5a27; -fx-text-fill: white;"
+              visible="false" managed="false"/>
+</HBox>
+
+    <HBox spacing="10" alignment="CENTER_LEFT">
+        <Button fx:id="btnVisitsReport" text="📅 Visits Report"
+                onAction="#onVisitsReport"
+                style="-fx-background-color: #3a7a34; -fx-text-fill: white; -fx-font-size: 13px;
+                       -fx-font-weight: bold; -fx-padding: 9 18 9 18; -fx-cursor: hand;
+                       -fx-background-radius: 6;"/>
+        <Button fx:id="btnUsageReport" text="📈 Usage Report"
+                onAction="#onUsageReport"
+                style="-fx-background-color: #3a7a34; -fx-text-fill: white; -fx-font-size: 13px;
+                       -fx-font-weight: bold; -fx-padding: 9 18 9 18; -fx-cursor: hand;
+                       -fx-background-radius: 6;"/>
+        <Button fx:id="btnCancellationsReport" text="❌ Cancellations"
+                onAction="#onCancellationsReport"
+                style="-fx-background-color: #3a7a34; -fx-text-fill: white; -fx-font-size: 13px;
+                       -fx-font-weight: bold; -fx-padding: 9 18 9 18; -fx-cursor: hand;
+                       -fx-background-radius: 6;"/>
+        <Button fx:id="btnVisitorCountReport" text="👥 Visitor Count"
+                onAction="#onVisitorCountReport"
+                style="-fx-background-color: #3a7a34; -fx-text-fill: white; -fx-font-size: 13px;
+                       -fx-font-weight: bold; -fx-padding: 9 18 9 18; -fx-cursor: hand;
+                       -fx-background-radius: 6;"/>
+        <Region HBox.hgrow="ALWAYS"/>
+        <Button text="⬅ Back" onAction="#onBack"
+                style="-fx-background-color: #37474f; -fx-text-fill: white; -fx-font-size: 13px;
+                       -fx-padding: 9 18 9 18; -fx-cursor: hand; -fx-background-radius: 6;"/>
+    </HBox>
+
+    <Label fx:id="lblStatus"
+           text="Select a month/year and a report to view."
+           style="-fx-text-fill: #80cbc4; -fx-font-size: 12px; -fx-font-style: italic;"/>
+
+    <StackPane fx:id="chartPane"
+               VBox.vgrow="ALWAYS"
+               minHeight="220"
+               style="-fx-background-color: #1e3a1e; -fx-background-radius: 10;
+                      -fx-border-color: #3a6b3a; -fx-border-width: 1; -fx-border-radius: 10;"/>
+
+    <TableView fx:id="reportTable"
+               VBox.vgrow="ALWAYS"
+               minHeight="150"
+               style="-fx-background-color: #f9fdf9; -fx-background-radius: 8;
+                      -fx-border-color: #3a6b3a; -fx-border-width: 1;"/>
+
+</VBox>

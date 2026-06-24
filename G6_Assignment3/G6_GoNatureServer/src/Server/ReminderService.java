@@ -12,12 +12,10 @@ public class ReminderService extends Thread {
     public void run() {
         while (true) {
             try {
+                Thread.sleep(60000);
                 reservationDB.sendVisitReminders();
                 reservationDB.autoCancelUnconfirmedReservations();
                 reservationDB.expireWaitingListOffers();
-
-                Thread.sleep(60000);
-
             } catch (Exception e) {
                 e.printStackTrace();
             }

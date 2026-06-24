@@ -20,7 +20,7 @@ public class DBController {
     private static final String URL =
         "jdbc:mysql://localhost:3306/gonature?allowLoadLocalInfile=true&serverTimezone=Asia/Jerusalem&useSSL=false";
     private static final String USER = "root";
-    private static final String PASSWORD = "Lamis123456";
+    private static final String PASSWORD = "Hadi218057";
     private static final int POOL_SIZE = 5;
 
     private List<Connection> pool = new ArrayList<>();

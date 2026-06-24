@@ -1,18 +1,16 @@
 package GUI;
 
 import Client.ClientUI;
+import Client.OrderClient;
+import Common.Chat;
+import Common.EntryExitResponse;
+import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
 import javafx.scene.control.Label;
 import java.io.IOException;
-import javafx.event.ActionEvent;
-import javafx.fxml.FXMLLoader;
-import javafx.scene.Node;
-import javafx.scene.Parent;
-import javafx.scene.Scene;
-import javafx.stage.Stage;
 
 public class DeptManagerDashboardController {
 
@@ -24,21 +22,19 @@ public class DeptManagerDashboardController {
             lblWelcome.setText("Welcome, " + ClientUI.loggedInUser.getFirstName()
                 + " " + ClientUI.loggedInUser.getLastName());
         }
+        // Clear any leftover entry/exit controllers
+        OrderClient.parkEntryController = null;
+        OrderClient.parkExitController = null;
+        OrderClient.parkManagerDashboardController = null;
+        OrderClient.visitorCountController = null;
     }
+
     @FXML
     void viewVisitorCount(ActionEvent event) {
         try {
-            java.net.URL fxmlUrl = getClass().getResource("/GUI/VisitorCount.fxml");
-
-            if (fxmlUrl == null) {
-                System.out.println("ERROR: VisitorCount.fxml was not found in /GUI/VisitorCount.fxml");
-                return;
-            }
-
-            FXMLLoader loader = new FXMLLoader(fxmlUrl);
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/GUI/VisitorCount.fxml"));
             Scene scene = new Scene(loader.load());
             ClientUI.primaryStage.setScene(scene);
-
         } catch (IOException e) {
             System.out.println("Failed to open VisitorCount: " + e.getMessage());
             e.printStackTrace();
@@ -46,13 +42,18 @@ public class DeptManagerDashboardController {
     }
 
     @FXML
-    void viewAllVisitorCount(ActionEvent event) { /* TODO: F4 */ }
-
-    @FXML
-    void visitsReport(ActionEvent event)        { /* TODO: F5 */ }
-
-    @FXML
-    void cancellationsReport(ActionEvent event) { /* TODO: F5 */ }
+    void openReports(ActionEvent event) {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/GUI/Reports.fxml"));
+            javafx.scene.Parent root = loader.load();
+            ReportsController controller = loader.getController();
+            controller.initData("DEPARTMENT_MANAGER", -1);
+            ClientUI.primaryStage.setScene(new Scene(root));
+        } catch (Exception e) {
+            System.out.println("Failed to open Reports: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
 
     @FXML
     void approveRejectParams(ActionEvent event) {
@@ -66,11 +67,19 @@ public class DeptManagerDashboardController {
             e.printStackTrace();
         }
     }
+    @FXML
+    void editProfile(ActionEvent event) {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/GUI/EditProfile.fxml"));
+            Scene scene = new Scene(loader.load());
+            ClientUI.primaryStage.setScene(scene);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 
     @FXML
-    void logout(ActionEvent event) {
-        LogoutHelper.logout();
-    }
+    void logout(ActionEvent event) { LogoutHelper.logout(); }
 
     @FXML
     void exit(ActionEvent event) {

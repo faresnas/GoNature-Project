@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<VBox xmlns="http://javafx.com/javafx/21"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="GUI.RegisterVisitorController"
+      alignment="TOP_CENTER"
+      spacing="0"
+      prefWidth="520"
+      prefHeight="580"
+      style="-fx-background-color: #1a3a1a;">
+
+    <HBox alignment="CENTER_LEFT"
+          style="-fx-background-color: #0f2210; -fx-padding: 16 24 16 24;">
+        <Label text="🌿 GoNature"
+               style="-fx-font-size: 20; -fx-font-weight: bold; -fx-text-fill: #7ec87e;" />
+        <Region HBox.hgrow="ALWAYS" />
+        <Label text="New Visitor Registration"
+               style="-fx-font-size: 12; -fx-text-fill: #a5c8a5; -fx-font-style: italic;" />
+    </HBox>
+
+    <VBox alignment="CENTER" spacing="4" style="-fx-padding: 20 0 14 0;">
+        <Label text="Register as Visitor"
+               style="-fx-font-size: 22; -fx-font-weight: bold; -fx-text-fill: #f0f7f0;" />
+        <Label text="Create your GoNature account"
+               style="-fx-font-size: 11; -fx-text-fill: #7aab7a;" />
+    </VBox>
+
+    <VBox spacing="10" style="-fx-padding: 0 40 0 40;">
+
+        <VBox spacing="4">
+            <Label text="First Name *"
+                   style="-fx-text-fill: #a5c8a5; -fx-font-size: 12; -fx-font-weight: bold;" />
+            <TextField fx:id="firstNameField" promptText="First name"
+                       style="-fx-background-color: #1e4a1e; -fx-text-fill: white;
+                              -fx-prompt-text-fill: #5a8a5a; -fx-background-radius: 7;
+                              -fx-border-color: #3a6b3a; -fx-border-radius: 7; -fx-padding: 8 10;" />
+        </VBox>
+
+        <VBox spacing="4">
+            <Label text="Last Name *"
+                   style="-fx-text-fill: #a5c8a5; -fx-font-size: 12; -fx-font-weight: bold;" />
+            <TextField fx:id="lastNameField" promptText="Last name"
+                       style="-fx-background-color: #1e4a1e; -fx-text-fill: white;
+                              -fx-prompt-text-fill: #5a8a5a; -fx-background-radius: 7;
+                              -fx-border-color: #3a6b3a; -fx-border-radius: 7; -fx-padding: 8 10;" />
+        </VBox>
+
+        <VBox spacing="4">
+            <Label text="ID Number *"
+                   style="-fx-text-fill: #a5c8a5; -fx-font-size: 12; -fx-font-weight: bold;" />
+            <TextField fx:id="idNumberField" promptText="ID number"
+                       style="-fx-background-color: #1e4a1e; -fx-text-fill: white;
+                              -fx-prompt-text-fill: #5a8a5a; -fx-background-radius: 7;
+                              -fx-border-color: #3a6b3a; -fx-border-radius: 7; -fx-padding: 8 10;" />
+        </VBox>
+
+        <VBox spacing="4">
+            <Label text="Phone *"
+                   style="-fx-text-fill: #a5c8a5; -fx-font-size: 12; -fx-font-weight: bold;" />
+            <TextField fx:id="phoneField" promptText="Phone number"
+                       style="-fx-background-color: #1e4a1e; -fx-text-fill: white;
+                              -fx-prompt-text-fill: #5a8a5a; -fx-background-radius: 7;
+                              -fx-border-color: #3a6b3a; -fx-border-radius: 7; -fx-padding: 8 10;" />
+        </VBox>
+
+        <VBox spacing="4">
+            <Label text="Email (optional)"
+                   style="-fx-text-fill: #a5c8a5; -fx-font-size: 12; -fx-font-weight: bold;" />
+            <TextField fx:id="emailField" promptText="email@example.com"
+                       style="-fx-background-color: #1e4a1e; -fx-text-fill: white;
+                              -fx-prompt-text-fill: #5a8a5a; -fx-background-radius: 7;
+                              -fx-border-color: #3a6b3a; -fx-border-radius: 7; -fx-padding: 8 10;" />
+        </VBox>
+
+    </VBox>
+
+    <HBox spacing="16" alignment="CENTER" style="-fx-padding: 24 0 0 0;">
+        <Button text="✔  Register"
+                onAction="#handleRegister"
+                prefWidth="180" prefHeight="38"
+                style="-fx-background-color: #2e7d32; -fx-text-fill: white; -fx-font-weight: bold;
+                       -fx-font-size: 13; -fx-background-radius: 8; -fx-cursor: hand;" />
+        <Button text="← Back"
+                onAction="#handleBack"
+                prefWidth="120" prefHeight="38"
+                style="-fx-background-color: #37474f; -fx-text-fill: white;
+                       -fx-font-size: 13; -fx-background-radius: 8; -fx-cursor: hand;" />
+    </HBox>
+
+</VBox>

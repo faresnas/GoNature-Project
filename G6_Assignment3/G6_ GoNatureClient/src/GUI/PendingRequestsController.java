@@ -2,6 +2,7 @@ package GUI;
 
 import Client.ClientUI;
 import Client.OrderClient;
+import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -52,8 +53,12 @@ public class PendingRequestsController {
         }
     }
 
-    private void refreshTable() {
+    public void refreshTable() {
         ClientUI.client.getPendingRequests();
+    }
+
+    public void refreshTablePublic() {
+        refreshTable();
     }
 
     public void setPendingRequestsTable(ArrayList<ArrayList<String>> rows) {
@@ -116,7 +121,6 @@ public class PendingRequestsController {
             Scene scene = new Scene(loader.load());
             ClientUI.primaryStage.setScene(scene);
         } catch (Exception e) {
-            System.out.println("Failed to go back: " + e.getMessage());
             e.printStackTrace();
         }
     }

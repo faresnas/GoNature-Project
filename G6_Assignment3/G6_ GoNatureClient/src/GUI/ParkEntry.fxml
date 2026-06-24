@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
-
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
@@ -7,30 +6,31 @@
             fx:controller="GUI.ParkEntryController"
             prefWidth="850" prefHeight="600"
             style="-fx-background-color: #0B3D1E;">
-
     <top>
-        <VBox spacing="8" style="-fx-padding: 25;">
+        <VBox spacing="4" style="-fx-padding: 25;">
             <Label text="🌿 Park Entry"
                    style="-fx-font-size: 28px; -fx-font-weight: bold; -fx-text-fill: white;" />
+            <Label fx:id="lblParkName"
+                   text="Park: "
+                   style="-fx-font-size: 13px; -fx-text-fill: #a5d6a7;" />
             <Label fx:id="lblCurrentVisitors"
                    text="Current visitors: -"
                    style="-fx-font-size: 15px; -fx-text-fill: #D6F5D6;" />
+            <Label fx:id="lblAvailableSpots"
+                   text="Available spots: -"
+                   style="-fx-font-size: 15px; -fx-text-fill: #80cbc4;" />
         </VBox>
     </top>
-
     <center>
         <VBox spacing="20" style="-fx-padding: 25;">
-
             <TitledPane text="Entry With Reservation / QR Substitute" expanded="true"
                         style="-fx-font-size: 14px;">
                 <GridPane hgap="12" vgap="12" style="-fx-padding: 20; -fx-background-color: white;">
                     <Label text="Traveler ID or Confirmation Code:"
                            GridPane.rowIndex="0" GridPane.columnIndex="0"/>
-
                     <TextField fx:id="txtReservationIdentifier"
                                promptText="Example: 999999"
                                GridPane.rowIndex="0" GridPane.columnIndex="1"/>
-
                     <Button text="Approve Reservation Entry"
                             onAction="#approveReservationEntry"
                             style="-fx-background-color: #2E7D32; -fx-text-fill: white; -fx-font-weight: bold;"
@@ -41,44 +41,29 @@
             <TitledPane text="Walk-In Entry" expanded="true"
                         style="-fx-font-size: 14px;">
                 <GridPane hgap="12" vgap="12" style="-fx-padding: 20; -fx-background-color: white;">
-                    <Label text="Park ID:"
-                           GridPane.rowIndex="0" GridPane.columnIndex="0"/>
-
-                    <TextField fx:id="txtWalkInParkId"
-                               promptText="Example: 1"
-                               GridPane.rowIndex="0" GridPane.columnIndex="1"/>
-
                     <Label text="Number of Visitors:"
-                           GridPane.rowIndex="1" GridPane.columnIndex="0"/>
-
+                           GridPane.rowIndex="0" GridPane.columnIndex="0"/>
                     <TextField fx:id="txtWalkInVisitors"
                                promptText="Example: 2"
-                               GridPane.rowIndex="1" GridPane.columnIndex="1"/>
-
+                               GridPane.rowIndex="0" GridPane.columnIndex="1"/>
                     <Label text="Visitor Type:"
-                           GridPane.rowIndex="2" GridPane.columnIndex="0"/>
-
+                           GridPane.rowIndex="1" GridPane.columnIndex="0"/>
                     <ComboBox fx:id="cmbWalkInType"
-                              GridPane.rowIndex="2" GridPane.columnIndex="1"/>
-
+                              GridPane.rowIndex="1" GridPane.columnIndex="1"/>
                     <Button text="Approve Walk-In Entry"
                             onAction="#approveWalkInEntry"
                             style="-fx-background-color: #2E7D32; -fx-text-fill: white; -fx-font-weight: bold;"
-                            GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+                            GridPane.rowIndex="2" GridPane.columnIndex="1"/>
                 </GridPane>
             </TitledPane>
 
             <HBox spacing="10">
-                <Button text="Back"
-                        onAction="#backToDashboard"
+                <Button text="Back" onAction="#backToDashboard"
                         style="-fx-background-color: #8B5A12; -fx-text-fill: white; -fx-font-weight: bold;"/>
             </HBox>
 
-            <TextArea fx:id="txtResult"
-                      editable="false"
-                      prefHeight="150"
+            <TextArea fx:id="txtResult" editable="false" prefHeight="150"
                       promptText="Entry result / payment bill will appear here"/>
-
         </VBox>
     </center>
 </BorderPane>

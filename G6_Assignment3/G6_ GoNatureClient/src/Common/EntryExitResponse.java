@@ -2,9 +2,6 @@ package Common;
 
 import java.io.Serializable;
 
-/**
- * Response object for park entry, exit, visitor count and payment operations.
- */
 public class EntryExitResponse implements Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -14,13 +11,15 @@ public class EntryExitResponse implements Serializable {
     private double amountToPay;
     private int currentVisitors;
     private int visitId;
+    private int availableSpots;
 
     public EntryExitResponse(boolean success, String message) {
         this.success = success;
         this.message = message;
     }
 
-    public EntryExitResponse(boolean success, String message, double amountToPay, int currentVisitors, int visitId) {
+    public EntryExitResponse(boolean success, String message, double amountToPay,
+            int currentVisitors, int visitId) {
         this.success = success;
         this.message = message;
         this.amountToPay = amountToPay;
@@ -28,23 +27,20 @@ public class EntryExitResponse implements Serializable {
         this.visitId = visitId;
     }
 
-    public boolean isSuccess() {
-        return success;
+    public EntryExitResponse(boolean success, String message, double amountToPay,
+            int currentVisitors, int visitId, int availableSpots) {
+        this.success = success;
+        this.message = message;
+        this.amountToPay = amountToPay;
+        this.currentVisitors = currentVisitors;
+        this.visitId = visitId;
+        this.availableSpots = availableSpots;
     }
 
-    public String getMessage() {
-        return message;
-    }
-
-    public double getAmountToPay() {
-        return amountToPay;
-    }
-
-    public int getCurrentVisitors() {
-        return currentVisitors;
-    }
-
-    public int getVisitId() {
-        return visitId;
-    }
+    public boolean isSuccess() { return success; }
+    public String getMessage() { return message; }
+    public double getAmountToPay() { return amountToPay; }
+    public int getCurrentVisitors() { return currentVisitors; }
+    public int getVisitId() { return visitId; }
+    public int getAvailableSpots() { return availableSpots; }
 }

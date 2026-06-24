@@ -68,6 +68,16 @@ public class ServiceRepDashboardController {
             e.printStackTrace();
         }
     }
+    @FXML
+    void editProfile(ActionEvent event) {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/GUI/EditProfile.fxml"));
+            Scene scene = new Scene(loader.load());
+            ClientUI.primaryStage.setScene(scene);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 
     @FXML
     void removeSubscriber(ActionEvent event) {

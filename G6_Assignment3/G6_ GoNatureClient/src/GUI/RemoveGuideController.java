@@ -42,7 +42,6 @@ public class RemoveGuideController {
         phoneCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().get(3)));
         usernameCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().get(4)));
 
-        // Auto-fill edit fields on row select
         guidesTable.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
                 editNameField.setText(newVal.get(1));
@@ -79,8 +78,13 @@ public class RemoveGuideController {
             return;
         }
 
-        if (!email.matches("^[\\w._%+\\-]+@[\\w.\\-]+\\.[a-zA-Z]{2,}$")) {
+        if (!email.matches("^[\\w._%+\\-]+@[\\w.\\-]+\\.[a-zA-Z]{2,4}$")) {
             showAlert(Alert.AlertType.ERROR, "Invalid Email", "Please enter a valid email address.");
+            return;
+        }
+
+        if (!phone.matches("\\d+")) {
+            showAlert(Alert.AlertType.ERROR, "Invalid Phone", "Phone must contain digits only.");
             return;
         }
 
@@ -126,7 +130,6 @@ public class RemoveGuideController {
             Scene scene = new Scene(loader.load());
             ClientUI.primaryStage.setScene(scene);
         } catch (Exception e) {
-            System.out.println("Failed to go back: " + e.getMessage());
             e.printStackTrace();
         }
     }
