@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+<?import javafx.geometry.*?>
+
+<VBox xmlns:fx="http://javafx.com/fxml"
+      fx:controller="GUI.ConnectionController"
+      spacing="15" alignment="CENTER"
+      style="-fx-background-color: #2d5a27; -fx-padding: 40;"
+      prefWidth="380" prefHeight="400">
+
+    <Label text="🌿 GoNature"
+           style="-fx-font-size: 26; -fx-font-weight: bold; -fx-text-fill: #f5f0e8;"/>
+
+    <Label text="Connect to Server"
+           style="-fx-font-size: 13; -fx-text-fill: #c8e6c9;"/>
+
+    <VBox spacing="6" maxWidth="250">
+        <Label text="IP Address:"
+               style="-fx-text-fill: #f5f0e8; -fx-font-size: 13;"/>
+        <TextField fx:id="txtIP" promptText="e.g. localhost"
+                   style="-fx-background-color: #f5f0e8; -fx-border-color: #6d4c1f;
+                          -fx-border-width: 2; -fx-border-radius: 5; -fx-background-radius: 5;
+                          -fx-font-size: 13; -fx-padding: 8;"/>
+    </VBox>
+
+    <VBox spacing="6" maxWidth="250">
+        <Label text="Port:"
+               style="-fx-text-fill: #f5f0e8; -fx-font-size: 13;"/>
+        <TextField fx:id="txtPort" promptText="e.g. 5555"
+                   style="-fx-background-color: #f5f0e8; -fx-border-color: #6d4c1f;
+                          -fx-border-width: 2; -fx-border-radius: 5; -fx-background-radius: 5;
+                          -fx-font-size: 13; -fx-padding: 8;"/>
+    </VBox>
+
+    <Label fx:id="errorLabel" text=""
+           style="-fx-text-fill: #ffcdd2; -fx-font-size: 12;"/>
+
+    <Button text="Connect" onAction="#connectToServer"
+            style="-fx-background-color: #6d4c1f; -fx-text-fill: white;
+                   -fx-font-size: 14; -fx-font-weight: bold;
+                   -fx-border-radius: 5; -fx-background-radius: 5;
+                   -fx-padding: 8 30 8 30; -fx-cursor: hand;"
+            maxWidth="250"/>
+
+    <Button text="Exit" onAction="#exit"
+            style="-fx-background-color: #1b3a17; -fx-text-fill: #c8e6c9;
+                   -fx-font-size: 13; -fx-border-radius: 5; -fx-background-radius: 5;
+                   -fx-padding: 6 30 6 30; -fx-cursor: hand;"
+            maxWidth="250"/>
+
+</VBox>
