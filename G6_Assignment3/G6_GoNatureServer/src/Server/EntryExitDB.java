@@ -3,28 +3,68 @@ package Server;
 import java.util.ArrayList;
 import Common.EntryExitResponse;
 
+/**
+ * The {@code EntryExitDB} class manages the persistence and logic for physical visitor traffic
+ * at GoNature park control gates.
+ * <p>
+ * This subsystem processes reservation validations upon arrival, tracks real-time park occupancy counters,
+ * handles ad-hoc walk-in permissions based on remaining capacity safety thresholds, and processes visitor exit protocols.
+ * It also encapsulates the centralized GoNature discount and pricing engine algorithm to generate bills based on the pricing model.
+ * </p>
+ *
+ * @author GoNature Development Team
+ * @version 1.0
+ */
 public class EntryExitDB {
 
+    /** Central persistence driver wrapper managing JDBC communications with the SQL database server. */
     private DBController dbController;
 
+    /** Real-time observer monitor used to broadcast live occupancy modifications out to background host managers. */
+    private VisitorCountCallback visitorCountCallback;
+
+    /**
+     * Interface defining structural hooks to capture and route real-time physical park occupancy updates 
+     * when visitors enter or exit.
+     */
+    public interface VisitorCountCallback {
+        /**
+         * Fired immediately when a park's concurrent visitor headroom parameter undergoes modifications.
+         *
+         * @param parkId         Unique index referencing the modified national park.
+         * @param currentCount   Active cumulative headcount currently inside the physical parameters.
+         * @param availableSpots Total remaining vacancy quota permitted before locking entry validation blocks.
+         */
+        void onVisitorCountChanged(int parkId, int currentCount, int availableSpots);
+    }
+
+    /**
+     * Constructs an {@code EntryExitDB} control manager component and secures a reference
+     * to the database execution instance.
+     */
     public EntryExitDB() {
         dbController = DBController.getInstance();
     }
     
-    public interface VisitorCountCallback {
-        void onVisitorCountChanged(int parkId, int currentCount, int availableSpots);
-    }
-
-    private VisitorCountCallback visitorCountCallback;
-
+    /**
+     * Registers an external observer interface task used to funnel live occupancy change alerts out onto server modules.
+     *
+     * @param callback The tracking listener implementation matching specification rules.
+     */
     public void setVisitorCountCallback(VisitorCountCallback callback) {
         this.visitorCountCallback = callback;
     }
 
     /**
-     * Approves entry for a visitor with a confirmed or pending reservation.
-     * Accepts traveler ID or confirmation code.
-     * Generates and returns a payment bill based on the pricing model.
+     * Validates and processes a formal park arrival entry tracking command matching an active customer pre-booking.
+     * <p>
+     * Scans database indices looking for matching date bounds and statuses (PENDING/CONFIRMED) utilizing either 
+     * a traveler citizen ID or an alpha-numeric confirmation tracking code. If valid, generates a payment invoice, 
+     * logs a persistent visit record, and updates live park capacity metrics.
+     * </p>
+     *
+     * @param identifier Distinct citizen identification card digits or systemic alpha-numeric tracking code.
+     * @return Formulated {@link EntryExitResponse} payload summarizing entry authorization state, price bills, and capacity bounds.
      */
     public EntryExitResponse approveReservationEntry(String identifier) {
         try {
@@ -83,7 +123,6 @@ public class EntryExitDB {
 
             increaseActiveVisitors(parkId, numVisitors);
 
-            // Mark reservation as INSIDE
             dbController.executeUpdate(
                 "UPDATE reservations SET status='INSIDE' WHERE id=" + reservationId);
 
@@ -101,8 +140,17 @@ public class EntryExitDB {
     }
 
     /**
-     * Approves walk-in entry if space is available.
-     * Generates and returns a payment bill based on visitor type.
+     * Approves and processes an ad-hoc walk-in traveler entry transaction at a park entrance terminal.
+     * <p>
+     * Audits live occupancy parameters to ensure the new party size fits within current safety quotas 
+     * (Max Capacity minus Pre-booked Quotas minus Current Visitors). If allowed, calculates the appropriate non-member 
+     * walk-in payment pricing matrix, logs a detached visit entry record, and ticks active occupancy flags.
+     * </p>
+     *
+     * @param parkId      Unique identifier mapping to the physical park gate location.
+     * @param numVisitors Cumulative traveler headcount requested for validation entry.
+     * @param visitorType Pricing structural archetype descriptor keyword (e.g., "INDIVIDUAL" or "GROUP").
+     * @return Formulated {@link EntryExitResponse} tracking authorization passes, costs, and current occupancy indices.
      */
     public EntryExitResponse approveWalkInEntry(int parkId, int numVisitors, String visitorType) {
         try {
@@ -155,14 +203,20 @@ public class EntryExitDB {
     }
 
     /**
-     * Registers exit for a specific visit ID.
-     * Updates reservation status to EXITED.
+     * Registers a physical exit event for an active visitor party tracking under an open reservation.
+     * <p>
+     * Locates the active visit record via confirmation code or traveler ID, sets the exit timestamp to NOW, 
+     * decrements active visitor metrics for that park, updates the reservation status to EXITED, 
+     * and triggers a visitor count callback notification.
+     * </p>
+     *
+     * @param identifier Distinct client citizen ID number string or unique reservation alphanumeric confirmation code.
+     * @return Formulated {@link EntryExitResponse} outlining tracking execution successes and recalculated park vacancy parameters.
      */
     public EntryExitResponse registerExit(String identifier) {
         try {
             identifier = identifier.trim();
 
-            // Look up the open visit by confirmation code or traveler ID
             String sql =
                 "SELECT pv.id, pv.park_id, pv.num_visitors FROM park_visits pv " +
                 "JOIN reservations r ON pv.reservation_id = r.id " +
@@ -193,7 +247,6 @@ public class EntryExitDB {
 
             decreaseActiveVisitors(parkId, numVisitors);
 
-            // Mark reservation as EXITED
             dbController.executeUpdate(
                 "UPDATE reservations r " +
                 "JOIN park_visits pv ON pv.reservation_id = r.id " +
@@ -220,7 +273,13 @@ public class EntryExitDB {
     }
 
     /**
-     * Manually registers exit for a given number of visitors from a park.
+     * Forcefully executes a manual exit offset, decrementing the concurrent occupancy tracking indices 
+     * of a target national park by a given headcount volume.
+     * Used primarily by park desk rangers managing walk-in tour groups that exit without standard badge scanning.
+     *
+     * @param parkId      Unique index key matching the targeted park.
+     * @param numVisitors Headcount value representing the number of exiting visitors.
+     * @return Formulated {@link EntryExitResponse} containing adjusted current capacity ratios.
      */
     public EntryExitResponse registerManualExit(int parkId, int numVisitors) {
         try {
@@ -258,6 +317,13 @@ public class EntryExitDB {
         }
     }
 
+    /**
+     * Queries structural database tables to pull the current volume of active inside visitors tracked inside a park index.
+     * If no monitoring row exists for the targeted park, an empty entry is initialized.
+     *
+     * @param parkId Index referencing the targeted national park.
+     * @return Total integer headcount currently inside the park location.
+     */
     public int getCurrentVisitors(int parkId) {
         ArrayList<ArrayList<String>> result = dbController.executeQuery(
             "SELECT current_count FROM active_visitors WHERE park_id = " + parkId);
@@ -270,6 +336,12 @@ public class EntryExitDB {
         return Integer.parseInt(result.get(0).get(0));
     }
 
+    /**
+     * Builds a response detailing live capacity stats, current counts, and calculated open entry gaps.
+     *
+     * @param parkId Index tracking the requested national park location.
+     * @return Formulated {@link EntryExitResponse} wrapping structural capacity parameters.
+     */
     public EntryExitResponse getCurrentVisitorsResponse(int parkId) {
         int current = getCurrentVisitors(parkId);
 
@@ -285,6 +357,13 @@ public class EntryExitDB {
         return new EntryExitResponse(true, "Current visitor count loaded.", 0, current, 0, available);
     }
 
+    /**
+     * Increments the live concurrent visitor tracking row of a given park location.
+     * Automatically dispatches a callback update across registered backend thread listeners.
+     *
+     * @param parkId Unique database primary key entry locating the park row.
+     * @param amount Headcount volume addition index.
+     */
     private void increaseActiveVisitors(int parkId, int amount) {
         getCurrentVisitors(parkId);
         dbController.executeUpdate(
@@ -293,6 +372,14 @@ public class EntryExitDB {
         fireVisitorCountCallback(parkId);
     }
 
+    /**
+     * Decrements the live concurrent visitor tracking row of a given park location.
+     * Employs safe data clamping thresholds to prevent counts from dropping below 0.
+     * Automatically dispatches a callback update across registered backend thread listeners.
+     *
+     * @param parkId Unique database primary key entry locating the park row.
+     * @param amount Headcount volume reduction index.
+     */
     private void decreaseActiveVisitors(int parkId, int amount) {
         int current = getCurrentVisitors(parkId);
         int safe = Math.min(amount, current);
@@ -302,6 +389,11 @@ public class EntryExitDB {
         fireVisitorCountCallback(parkId);
     }
 
+    /**
+     * Resolves layout thresholds for a park and fires the visitor count callback to update active clients in real-time.
+     *
+     * @param parkId Unique index tracking the modified park location.
+     */
     private void fireVisitorCountCallback(int parkId) {
         if (visitorCountCallback == null) return;
         try {
@@ -316,10 +408,16 @@ public class EntryExitDB {
             }
             visitorCountCallback.onVisitorCountChanged(parkId, current, available);
         } catch (Exception e) {
-            // silent
+            // silent fallback
         }
     }
 
+    /**
+     * Utility look-up fetching the absolute highest structural entry key inside the visit logs.
+     * Used to assign tracking indexes to active responses.
+     *
+     * @return Highest index key tracked; returns 0 if table lacks rows.
+     */
     private int getLastVisitId() {
         ArrayList<ArrayList<String>> result = dbController.executeQuery(
             "SELECT MAX(id) FROM park_visits");
@@ -327,6 +425,13 @@ public class EntryExitDB {
         return Integer.parseInt(result.get(0).get(0));
     }
 
+    /**
+     * Evaluates database rows to assert whether a single reservation key has an active visit row 
+     * that has not recorded an exit timestamp yet.
+     *
+     * @param reservationId Target index identifying the specific booking.
+     * @return {@code true} if an un-exited entry matches the parameter id; {@code false} otherwise.
+     */
     private boolean hasOpenVisitForReservation(int reservationId) {
         ArrayList<ArrayList<String>> result = dbController.executeQuery(
             "SELECT id FROM park_visits WHERE reservation_id = " + reservationId + " AND exit_time IS NULL");
@@ -334,15 +439,25 @@ public class EntryExitDB {
     }
 
     /**
-     * Calculates total payment based on the GoNature pricing model:
+     * Compiles and resolves financial payment invoices based on the official GoNature multi-tiered pricing model.
+     * Calculates pricing rules based on booking types, pre-payments, and membership statuses:
+     * <ul>
+     * <li>Personal/Family pre-booked: 15% discount on full base price.</li>
+     * <li>Personal/Family walk-in: Full standard base price.</li>
+     * <li>Group pre-booked: 25% base discount + 12% extra discount if pre-paid, and Group Guide passes for free.</li>
+     * <li>Group walk-in: 10% base discount, and Group Guide pays standard rate.</li>
+     * <li>Subscriber status: Additional 10% cumulative compound discount applied on top of any of the above paths.</li>
+     * <li>Active promotional conditions are evaluated last as a percentage deduction off the final cumulative group sum.</li>
+     * </ul>
      *
-     * 1. Personal/family pre-booked:   15% off full price
-     * 2. Personal/family walk-in:      full price
-     * 3. Group pre-booked:             25% off, +12% off if prepaid, guide free
-     * 4. Group walk-in:                10% off, guide pays
-     * 5. Subscriber:                   additional 10% off (cumulative) on top of any above
-     *
-     * Promotion discount applied last on the total.
+     * @param fullPrice         Base individual price standard tracking index configured for the park.
+     * @param numVisitors       Cumulative total headcount count of people inside the party.
+     * @param type              Organizational category designation keyword ("INDIVIDUAL" or "GROUP").
+     * @param hasReservation    Flag indicating if the visit was pre-booked.
+     * @param isPrepaid         Flag tracking if payment transaction tokens were settled prior to arrival.
+     * @param isSubscriber      Flag tracking if the customer holds an active Subscriber tier account.
+     * @param promotionDiscount Active seasonal percentage reduction token layer loaded from park configurations.
+     * @return Rounded double value tracking the total aggregated cost of the generated payment bill.
      */
     private double calculatePayment(double fullPrice, int numVisitors, String type,
             boolean hasReservation, boolean isPrepaid,

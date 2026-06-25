@@ -24,30 +24,78 @@ import GUI.VisitorCountController;
 import GUI.ParkManagerDashboardController;
 import GUI.ConnectionController;
 
+/**
+ * The {@code OrderClient} class manages the client-side communication with the GoNature server.
+ * It extends {@link AbstractClient} from the OCSF framework to establish network connections,
+ * wrap client requests using the {@link Chat} carrier object, and dynamically update various 
+ * JavaFX UI controllers on the JavaFX Application Thread upon receiving server responses.
+ * * <p>This class keeps track of the {@code lastCommand} submitted to maintain contextual state 
+ * for incoming generic list-based or primitive responses.</p>
+ * * @author GoNature Development Team
+ * @version 1.0
+ */
 public class OrderClient extends AbstractClient {
 
+    /** Controller for managing user reservations view. */
     public static MyReservationsController myReservationsController;
+    
+    /** Controller for booking new reservations and checking park availability. */
     public static ReservationController reservationController;
+    
+    /** Controller for a department manager evaluating pending park updates. */
     public static PendingRequestsController pendingRequestsController;
+    
+    /** Controller for viewing parameter requests belonging to a specific park. */
     public static UpdateParkParamsController updateParkParamsController;
+    
+    /** Controller managing the removal/viewing of registered guides. */
     public static RemoveGuideController removeGuideController;
+    
+    /** Controller managing the removal/viewing of subscribers. */
     public static RemoveSubscriberController removeSubscriberController;
+    
+    /** Controller responsible for compiling and rendering park occupancy, usage, and cancellation reports. */
     public static GUI.ReportsController reportsController;
+    
+    /** Controller running the live summary dashboard for a individual park manager. */
     public static ParkManagerDashboardController parkManagerDashboardController;
+    
+    /** Controller for updating personal guide or subscriber profile information. */
     public static GUI.EditProfileController editProfileController;
+    
+    /** Controller managing the active waiting list entries for travelers. */
     public static GUI.WaitingListController waitingListController;
 
+    /** Controller operating physical park entry terminal events. */
     public static ParkEntryController parkEntryController;
+    
+    /** Controller operating physical park exit terminal events. */
     public static ParkExitController parkExitController;
+    
+    /** Controller displaying live concurrent capacities inside the parks. */
     public static VisitorCountController visitorCountController;
 
+    /** Tracks the latest command identifier string sent out to correctly decipher generic raw array server responses. */
     public static String lastCommand = "";
+    
+    /** Local list storing contextual data arrays or orders retrieved from the database. */
     public static ArrayList<Order> ordersList;
 
+    /**
+     * Constructs an {@code OrderClient} connection instance targeting the defined host address and port number.
+     *
+     * @param host The remote domain name or IP address of the GoNature server.
+     * @param port The port number listening on the server side.
+     */
     public OrderClient(String host, int port) {
         super(host, port);
     }
 
+    /**
+     * Transmits a request to create a new reservation into the system database.
+     *
+     * @param reservation The {@link Reservation} object encapsulating traveler details, time, and group volume.
+     */
     public void createReservation(Reservation reservation) {
         try {
             sendToServer(new Chat("CREATE_RESERVATION", reservation));
@@ -56,6 +104,12 @@ public class OrderClient extends AbstractClient {
         }
     }
 
+    /**
+     * Pulls the history list of bookings attached to a specific traveler identification tag.
+     *
+     * @param travelerId   The unique structural identifier integer of the user.
+     * @param travelerType The categorical designation string (e.g., "Subscriber", "Guide", "Regular").
+     */
     public void requestMyReservations(int travelerId, String travelerType) {
         try {
             lastCommand = "GET_MY_RESERVATIONS";
@@ -68,6 +122,14 @@ public class OrderClient extends AbstractClient {
         }
     }
 
+    /**
+     * Modifies the scheduling parameters of an existing future reservation.
+     *
+     * @param reservationId The target identifier for the row matching the reservation.
+     * @param visitDate     The updated calendar date string (YYYY-MM-DD).
+     * @param entryTime     The newly targeted arrival hour string (HH:MM).
+     * @param numVisitors   The modified cumulative headcount joining the entry group.
+     */
     public void updateReservation(int reservationId, String visitDate, String entryTime, int numVisitors) {
         try {
             ArrayList<Object> data = new ArrayList<>();
@@ -81,6 +143,13 @@ public class OrderClient extends AbstractClient {
         }
     }
 
+    /**
+     * Removes an established booking from the system.
+     *
+     * @param reservationId The system identifier key matching the canceled booking.
+     * @param travelerId    The structural identification integer for the customer canceling.
+     * @param travelerType  The profile type descriptor string for permission/fee logic handling.
+     */
     public void deleteReservation(int reservationId, int travelerId, String travelerType) {
         try {
             ArrayList<Object> data = new ArrayList<>();
@@ -93,6 +162,9 @@ public class OrderClient extends AbstractClient {
         }
     }
 
+    /**
+     * Fetches metadata describing all parks operating within the current jurisdiction ecosystem.
+     */
     public void requestParks() {
         try {
             lastCommand = "GET_PARKS";
@@ -102,6 +174,17 @@ public class OrderClient extends AbstractClient {
         }
     }
 
+    /**
+     * Directs client fields to form and persist a brand-new Subscriber profile on the server database.
+     *
+     * @param firstName  First name of the subscriber.
+     * @param lastName   Last name of the subscriber.
+     * @param idNumber   Unique identification card number.
+     * @param phone      Contact phone digits.
+     * @param email      Electronic mail address.
+     * @param familySize Total number of family members registered under the subscription account.
+     * @param creditCard Payment card digits associated with the file billing registry.
+     */
     public void registerSubscriber(String firstName, String lastName, String idNumber,
             String phone, String email, int familySize, String creditCard) {
         try {
@@ -120,6 +203,16 @@ public class OrderClient extends AbstractClient {
         }
     }
 
+    /**
+     * Directs client fields to register a verified Group Guide account on the server database.
+     *
+     * @param name     Full legal name of the guide.
+     * @param email    Electronic mail contact destination.
+     * @param phone    Mobile telephone digits.
+     * @param idNumber Government issued unique citizen identifier string.
+     * @param username Desired unique login username credential.
+     * @param password Desired login security clearance phrase string.
+     */
     public void registerGuide(String name, String email, String phone,
             String idNumber, String username, String password) {
         try {
@@ -137,6 +230,15 @@ public class OrderClient extends AbstractClient {
         }
     }
 
+    /**
+     * Creates an official alteration request for a park operation property (e.g., maximum capacity, gap offset).
+     * Needs validation by an authoritative department supervisor before changing live environment variables.
+     *
+     * @param parkId      Numeric index referencing the target national park.
+     * @param requestType String keyword indicating which setting is targeted for adjustment.
+     * @param newValue    The new capacity index, scale ratio, or time calculation value.
+     * @param requestedBy Employee identity token of the park manager initiating the request.
+     */
     public void requestParkUpdate(int parkId, String requestType, double newValue, int requestedBy) {
         try {
             lastCommand = "REQUEST_PARK_UPDATE";
@@ -151,6 +253,9 @@ public class OrderClient extends AbstractClient {
         }
     }
 
+    /**
+     * Requests the full collection of global pending park configuration modifications awaiting department evaluation.
+     */
     public void getPendingRequests() {
         try {
             lastCommand = "GET_PENDING_REQUESTS";
@@ -160,6 +265,11 @@ public class OrderClient extends AbstractClient {
         }
     }
 
+    /**
+     * Requests pending park configuration update requests filtered down to a single designated park.
+     *
+     * @param parkId Numeric index referencing the target national park.
+     */
     public void getParkRequests(int parkId) {
         try {
             lastCommand = "GET_PARK_REQUESTS";
@@ -169,6 +279,11 @@ public class OrderClient extends AbstractClient {
         }
     }
 
+    /**
+     * Submits an approval action for an ongoing park parameter adjustment request.
+     *
+     * @param requestId Database structural index matching the configuration task ticket.
+     */
     public void approveRequest(int requestId) {
         try {
             lastCommand = "APPROVE_REQUEST";
@@ -178,6 +293,11 @@ public class OrderClient extends AbstractClient {
         }
     }
 
+    /**
+     * Submits a rejection action for an ongoing park parameter adjustment request.
+     *
+     * @param requestId Database structural index matching the configuration task ticket.
+     */
     public void rejectRequest(int requestId) {
         try {
             lastCommand = "REJECT_REQUEST";
@@ -187,6 +307,9 @@ public class OrderClient extends AbstractClient {
         }
     }
 
+    /**
+     * Requests a collection containing all registered Group Guides inside the system.
+     */
     public void getAllGuides() {
         try {
             lastCommand = "GET_ALL_GUIDES";
@@ -196,6 +319,9 @@ public class OrderClient extends AbstractClient {
         }
     }
 
+    /**
+     * Requests a collection containing all registered Subscriber client records inside the system.
+     */
     public void getAllSubscribers() {
         try {
             lastCommand = "GET_ALL_SUBSCRIBERS";
@@ -205,6 +331,11 @@ public class OrderClient extends AbstractClient {
         }
     }
 
+    /**
+     * Erases a targeted Group Guide profile record from the database registry.
+     *
+     * @param guideId DB unique reference tracking the target guide profile row.
+     */
     public void deleteGuide(int guideId) {
         try {
             lastCommand = "DELETE_GUIDE";
@@ -214,6 +345,11 @@ public class OrderClient extends AbstractClient {
         }
     }
 
+    /**
+     * Erases a targeted Subscriber profile record from the database registry.
+     *
+     * @param subscriberId DB unique reference tracking the target subscriber profile row.
+     */
     public void deleteSubscriber(int subscriberId) {
         try {
             lastCommand = "DELETE_SUBSCRIBER";
@@ -223,6 +359,15 @@ public class OrderClient extends AbstractClient {
         }
     }
 
+    /**
+     * Submits updated descriptive properties over writing an existing Group Guide profile row.
+     *
+     * @param guideId  Unique primary index key matching the specific record row.
+     * @param name     Modified legal name string.
+     * @param email    Updated contact electronic mailbox.
+     * @param phone    Altered telephone digit series.
+     * @param password New account access password.
+     */
     public void editGuide(int guideId, String name, String email,
             String phone, String password) {
         try {
@@ -239,6 +384,16 @@ public class OrderClient extends AbstractClient {
         }
     }
 
+    /**
+     * Submits updated descriptive properties over writing an existing Subscriber profile row.
+     *
+     * @param subscriberId Unique primary index key matching the specific subscriber profile.
+     * @param firstName    Modified subscriber personal name.
+     * @param lastName     Modified subscriber family name.
+     * @param phone        Altered telephone digit series.
+     * @param email        Updated contact electronic mailbox.
+     * @param familySize   Revised family member count allotment value.
+     */
     public void editSubscriber(int subscriberId, String firstName, String lastName,
             String phone, String email, int familySize) {
         try {
@@ -256,6 +411,13 @@ public class OrderClient extends AbstractClient {
         }
     }
 
+    /**
+     * Compiles analytical entry metrics and total traffic information regarding a single specified national park.
+     *
+     * @param parkId Target identifier key mapping to the requested location.
+     * @param month  Numerical calendar month query scope (1-12).
+     * @param year   Numerical target calendar year query scope.
+     */
     public void getVisitsReport(int parkId, int month, int year) {
         try {
             lastCommand = "GET_VISITS_REPORT";
@@ -269,6 +431,12 @@ public class OrderClient extends AbstractClient {
         }
     }
 
+    /**
+     * Compiles entry metrics and total traffic across all parks simultaneously for organizational comparison.
+     *
+     * @param month Numerical calendar month query scope (1-12).
+     * @param year  Numerical target calendar year query scope.
+     */
     public void getVisitsReportAll(int month, int year) {
         try {
             lastCommand = "GET_VISITS_REPORT_ALL";
@@ -281,6 +449,13 @@ public class OrderClient extends AbstractClient {
         }
     }
 
+    /**
+     * Asks the server to generate capacity-to-vacancy ratios throughout a monthly period for a specific park.
+     *
+     * @param parkId Structural reference id matching the national park.
+     * @param month  Numerical calendar month target index.
+     * @param year   Numerical calendar year target index.
+     */
     public void getUsageReport(int parkId, int month, int year) {
         try {
             lastCommand = "GET_USAGE_REPORT";
@@ -294,6 +469,12 @@ public class OrderClient extends AbstractClient {
         }
     }
 
+    /**
+     * Gathers a breakdown detailing unfulfilled, deleted, or missed visitor appointments inside a month interval.
+     *
+     * @param month Numerical target calendar month index.
+     * @param year  Numerical target calendar year index.
+     */
     public void getCancellationsReport(int month, int year) {
         try {
             lastCommand = "GET_CANCELLATIONS_REPORT";
@@ -306,6 +487,9 @@ public class OrderClient extends AbstractClient {
         }
     }
 
+    /**
+     * Sends an request payload pulling all registered orders currently captured across the server framework.
+     */
     public void requestAllOrders() {
         try {
             sendToServer(new Chat("GET_ORDERS", null));
@@ -314,6 +498,11 @@ public class OrderClient extends AbstractClient {
         }
     }
 
+    /**
+     * Dispatches properties of an adjusted, active order instance to synchronize backend database fields.
+     *
+     * @param order The {@link Order} model component carrying altered headcount or scheduling configurations.
+     */
     public void sendOrderUpdate(Order order) {
         try {
             ArrayList<Object> updateData = new ArrayList<>();
@@ -326,6 +515,11 @@ public class OrderClient extends AbstractClient {
         }
     }
 
+    /**
+     * Standardized internal wrapping helper directing structured communications directly up onto the system host stream.
+     *
+     * @param chat Encapsulated transport class matching server communication protocol standards.
+     */
     public void sendToServer(Chat chat) {
         try {
             super.sendToServer(chat);
@@ -334,6 +528,9 @@ public class OrderClient extends AbstractClient {
         }
     }
 
+    /**
+     * Signs out the customer session from active indexing on the host, and securely terminates client sockets.
+     */
     public void disconnect() {
         try {
             sendToServer(new Chat("CLIENT_EXIT", null));
@@ -343,16 +540,29 @@ public class OrderClient extends AbstractClient {
         }
     }
 
+    /**
+     * Triggered automatically by OCSF when the communication session closes.
+     */
     @Override
     protected void connectionClosed() {
         System.out.println("OrderClient: connection closed");
     }
 
+    /**
+     * Triggered automatically by OCSF when an unexpected network connectivity error occurs.
+     *
+     * @param exception The root exception item tracing the socket failure source.
+     */
     @Override
     protected void connectionException(Exception exception) {
         System.out.println("OrderClient: connection error — " + exception.getMessage());
     }
 
+    /**
+     * Places a customer reservation block request inside the standby waiting hierarchy list when a destination park is full.
+     *
+     * @param reservation Contextual details of the desired booking slot.
+     */
     public void joinWaitingList(Reservation reservation) {
         try {
             lastCommand = "JOIN_WAITING_LIST";
@@ -362,6 +572,13 @@ public class OrderClient extends AbstractClient {
         }
     }
 
+    /**
+     * Formulates explicit validation responding to a pre-arrival checking alert reminder system notification.
+     *
+     * @param reservationId Key index linking back to the designated booking.
+     * @param travelerId    The identity index matching the corresponding booking recipient traveler.
+     * @param travelerType  Authorization access context profiling key.
+     */
     public void confirmReminder(int reservationId, int travelerId, String travelerType) {
         try {
             lastCommand = "CONFIRM_REMINDER";
@@ -375,6 +592,12 @@ public class OrderClient extends AbstractClient {
         }
     }
 
+    /**
+     * Audits whether there are outstanding pre-visit confirmation reminders waiting for a specific client.
+     *
+     * @param travelerId    The structural identification integer for the customer.
+     * @param travelerType  The profile type descriptor string for the customer.
+     */
     public void checkReminders(int travelerId, String travelerType) {
         try {
             lastCommand = "CHECK_REMINDERS";
@@ -387,6 +610,11 @@ public class OrderClient extends AbstractClient {
         }
     }
 
+    /**
+     * Commits descriptive modifications regarding the user profile back to database structures.
+     *
+     * @param data Packed array containing parameters targeted for modification.
+     */
     public void updateProfile(ArrayList<Object> data) {
         try {
             lastCommand = "UPDATE_PROFILE";
@@ -396,6 +624,13 @@ public class OrderClient extends AbstractClient {
         }
     }
 
+    /**
+     * Confirms and claims a recently freed appointment slot that opened up for a traveler on the waiting list.
+     *
+     * @param waitingListId Unique database primary key entry locating the waiting list row.
+     * @param travelerId    Target user database identifier string.
+     * @param travelerType  User clearance metadata categorization string.
+     */
     public void confirmWaitingList(int waitingListId, int travelerId, String travelerType) {
         try {
             lastCommand = "CONFIRM_WAITING_LIST";
@@ -409,6 +644,11 @@ public class OrderClient extends AbstractClient {
         }
     }
 
+    /**
+     * Declines a waiting list spot that opened up, allowing the system to pass the opening to the next traveler.
+     *
+     * @param waitingListId Structural index mapping to the waiting queue track row.
+     */
     public void declineWaitingList(int waitingListId) {
         try {
             lastCommand = "DECLINE_WAITING_LIST";
@@ -418,6 +658,13 @@ public class OrderClient extends AbstractClient {
         }
     }
 
+    /**
+     * Core handler implementation sorting asynchronous down-stream response signals incoming from the server socket.
+     * It parses response type instances, wraps presentation inside asynchronous FX platform tasks via 
+     * {@link Platform#runLater(Runnable)}, handles fallback defaults, and throws UI warning alert popups.
+     *
+     * @param chat Polymorphic packet object transmitting server updates.
+     */
     @SuppressWarnings("unchecked")
     @Override
     protected void handleMessageFromServer(Object chat) {
@@ -480,7 +727,6 @@ public class OrderClient extends AbstractClient {
                         visitorCountController.updateVisitorCount(parkId, currentCount, available);
                     }
                     if (parkManagerDashboardController != null) {
-                        // also update park manager dashboard if open
                         Common.EntryExitResponse r = new Common.EntryExitResponse(
                             true, "Live update", 0, currentCount, 0, available);
                         parkManagerDashboardController.handleVisitorCountResponse(r);
@@ -497,12 +743,9 @@ public class OrderClient extends AbstractClient {
                 if (list.get(0) instanceof ArrayList) {
                     ArrayList<ArrayList<String>> data = (ArrayList<ArrayList<String>>) list;
 
-                    // Check for server-pushed waiting list notification
-                 // Check for server-pushed waiting list notification
                     if (!data.isEmpty() && !data.get(0).isEmpty() && "WL_PUSH".equals(data.get(0).get(0))) {
                         ArrayList<String> row = data.get(0);
-                        row.remove(0); // remove WL_PUSH marker
-                        // Add WL marker so handleReminders treats it as waiting list notification
+                        row.remove(0); 
                         row.add(0, "WL");
 
                         ArrayList<ArrayList<String>> notifList = new ArrayList<>();
@@ -623,7 +866,6 @@ public class OrderClient extends AbstractClient {
                         alert.showAndWait();
                     }
                 } else {
-                    // REGISTER_SUBSCRIBER
                     if (result > 0) {
                         javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
                                 javafx.scene.control.Alert.AlertType.INFORMATION);
@@ -863,7 +1105,6 @@ public class OrderClient extends AbstractClient {
                             "Total Estimated Price: " + price + " NIS\n\n" +
                             "Status: PENDING");
                     alert.showAndWait();
-                 // Refresh availability label after booking
                     if (reservationController != null) {
                         reservationController.refreshAvailability();
                     }
@@ -911,6 +1152,13 @@ public class OrderClient extends AbstractClient {
         }
     }
     
+    /**
+     * Compiles data detailing total visitor volumes for a specific park during a requested month timeframe.
+     *
+     * @param parkId Numeric identifier matching the targeted park.
+     * @param month  Numerical calendar month query scope (1-12).
+     * @param year   Numerical target calendar year query scope.
+     */
     public void getVisitorCountReport(int parkId, int month, int year) {
         try {
             lastCommand = "GET_VISITOR_COUNT_REPORT";
@@ -924,6 +1172,12 @@ public class OrderClient extends AbstractClient {
         }
     }
 
+    /**
+     * Compiles cross-park data tracking global total visitor volume metrics across all company parks simultaneously.
+     *
+     * @param month Numerical calendar month query scope (1-12).
+     * @param year  Numerical target calendar year query scope.
+     */
     public void getVisitorCountReportAll(int month, int year) {
         try {
             lastCommand = "GET_VISITOR_COUNT_REPORT_ALL";
@@ -936,6 +1190,13 @@ public class OrderClient extends AbstractClient {
         }
     }
     
+    /**
+     * Gathers structural cancellations metadata metrics isolated to a single park property.
+     *
+     * @param parkId Unique structural identifier index for the targeted park.
+     * @param month  Numerical target month filter index.
+     * @param year   Numerical target year filter index.
+     */
     public void getCancellationsReportByPark(int parkId, int month, int year) {
         try {
             lastCommand = "GET_CANCELLATIONS_REPORT";

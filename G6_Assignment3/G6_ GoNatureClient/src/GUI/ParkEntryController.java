@@ -20,18 +20,76 @@ import javafx.scene.control.Label;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 
+/**
+ * Controller for the park entry screen.
+ * <p>
+ * This controller allows a park worker to approve visitor entry
+ * either by reservation identifier or as a walk-in entry. It also
+ * displays the current number of visitors, available spots, park name,
+ * and billing information when payment is required.
+ * </p>
+ *
+ * @author Fares
+ * @version 1.0
+ */
 public class ParkEntryController {
 
-    @FXML private TextField txtReservationIdentifier;
-    @FXML private TextField txtWalkInVisitors;
-    @FXML private ComboBox<String> cmbWalkInType;
-    @FXML private TextArea txtResult;
-    @FXML private Label lblCurrentVisitors;
-    @FXML private Label lblAvailableSpots;
-    @FXML private Label lblParkName;
+    /**
+     * Text field used to enter a traveler ID or confirmation code.
+     */
+    @FXML
+    private TextField txtReservationIdentifier;
 
+    /**
+     * Text field used to enter the number of walk-in visitors.
+     */
+    @FXML
+    private TextField txtWalkInVisitors;
+
+    /**
+     * Combo box used to select the walk-in visitor type.
+     */
+    @FXML
+    private ComboBox<String> cmbWalkInType;
+
+    /**
+     * Text area used to display operation results and messages.
+     */
+    @FXML
+    private TextArea txtResult;
+
+    /**
+     * Label that displays the current number of visitors in the park.
+     */
+    @FXML
+    private Label lblCurrentVisitors;
+
+    /**
+     * Label that displays the number of available spots in the park.
+     */
+    @FXML
+    private Label lblAvailableSpots;
+
+    /**
+     * Label that displays the park name.
+     */
+    @FXML
+    private Label lblParkName;
+
+    /**
+     * The ID of the park assigned to the logged-in park worker.
+     */
     private int workerParkId = 1;
 
+    /**
+     * Initializes the park entry screen.
+     * <p>
+     * This method links the current controller to {@link OrderClient},
+     * resets the exit controller reference, initializes the walk-in type
+     * combo box, loads the worker's assigned park, displays the park name,
+     * and requests the current visitor count.
+     * </p>
+     */
     @FXML
     public void initialize() {
         OrderClient.parkEntryController = this;
@@ -55,6 +113,15 @@ public class ParkEntryController {
         refreshCurrentVisitors();
     }
 
+    /**
+     * Sends a request to approve entry for a visitor with an existing reservation.
+     * <p>
+     * The method reads the traveler ID or confirmation code from the input field
+     * and sends it to the server for validation.
+     * </p>
+     *
+     * @param event the action event triggered by the user.
+     */
     @FXML
     void approveReservationEntry(ActionEvent event) {
         String identifier = txtReservationIdentifier.getText().trim();
@@ -70,6 +137,15 @@ public class ParkEntryController {
         }
     }
 
+    /**
+     * Sends a request to approve entry for walk-in visitors.
+     * <p>
+     * The method validates the number of visitors, reads the selected visitor type,
+     * and sends the walk-in entry data to the server.
+     * </p>
+     *
+     * @param event the action event triggered by the user.
+     */
     @FXML
     void approveWalkInEntry(ActionEvent event) {
         try {
@@ -97,6 +173,9 @@ public class ParkEntryController {
         }
     }
 
+    /**
+     * Requests the current number of visitors in the worker's park.
+     */
     private void refreshCurrentVisitors() {
         try {
             OrderClient.lastCommand = "GET_CURRENT_VISITORS";
@@ -109,8 +188,13 @@ public class ParkEntryController {
 
     /**
      * Handles the server response after an entry attempt.
-     * On success: shows a billing popup dialog to the park worker,
-     * then updates the visitor count labels and result area.
+     * <p>
+     * If the operation succeeds, the visitor count labels are updated.
+     * If a payment amount exists, a billing popup is displayed to the
+     * park worker. The result area is updated in all cases.
+     * </p>
+     *
+     * @param response the entry or exit response received from the server.
      */
     public void handleEntryExitResponse(EntryExitResponse response) {
         if (response.isSuccess()) {
@@ -141,9 +225,13 @@ public class ParkEntryController {
     }
 
     /**
-     * Displays a billing dialog to the park worker.
-     * The worker presents this bill to the visitors before they enter.
-     * Actual payment is handled outside the GoNature system.
+     * Displays a payment bill dialog to the park worker.
+     * <p>
+     * The worker presents this bill to the visitors before allowing entry.
+     * The actual payment process is handled outside the GoNature system.
+     * </p>
+     *
+     * @param response the response containing the visit ID and amount to pay.
      */
     private void showBillPopup(EntryExitResponse response) {
         Alert billAlert = new Alert(Alert.AlertType.INFORMATION);
@@ -194,6 +282,11 @@ public class ParkEntryController {
         billAlert.showAndWait();
     }
 
+    /**
+     * Returns the user to the Park Worker dashboard.
+     *
+     * @param event the action event triggered by the user.
+     */
     @FXML
     void backToDashboard(ActionEvent event) {
         try {

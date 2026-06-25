@@ -2,6 +2,10 @@ package GUI;
 
 import Client.ClientUI;
 import Client.OrderClient;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -15,29 +19,82 @@ import java.util.HashMap;
 import java.time.LocalDate;
 import java.util.*;
 
+/**
+ * Controller class for the {@code Reports.fxml} view.
+ * <p>
+ * This class is responsible for fetching, generating, rendering, and exporting analytic reporting 
+ * structures within the GoNature application. It handles four primary report variants: Visits, 
+ * Park Usage, Cancellations, and Visitor Count summaries. The view dynamically adjusts layout elements 
+ * (such as multi-series BarCharts, PieCharts, and TableViews) based on the specific authorization role 
+ * of the logged-in supervisor (Park Manager vs. Department Manager).
+ * </p>
+ *
+ * @author GoNature Development Team
+ * @version 1.0
+ */
 public class ReportsController {
 
+    /** Button component triggering the monthly park visits and stay-duration breakdown report. */
     @FXML private Button btnVisitsReport;
+    
+    /** Button component triggering the daily park capacity occupancy utilization report. */
     @FXML private Button btnUsageReport;
+    
+    /** Button component triggering the cancellation and no-show analysis report. */
     @FXML private Button btnCancellationsReport;
+    
+    /** Button component triggering the total segmented visitor type headcount report. */
     @FXML private Button btnVisitorCountReport;
+    
+    /** Status message label tracking the current action, metadata summaries, or operational errors. */
     @FXML private Label lblStatus;
+    
+    /** Container panel placeholder inside which dynamic charting elements (Pie/Bar) are visually injected. */
     @FXML private StackPane chartPane;
+    
+    /** TableView template rendering the raw underlying matrix database rows matching the requested report. */
     @FXML private TableView<ArrayList<String>> reportTable;
+    
+    /** ComboBox element providing target calendar month query bounds selection (January - December). */
     @FXML private ComboBox<String> monthBox;
+    
+    /** ComboBox element providing target calendar year query bounds selection. */
     @FXML private ComboBox<String> yearBox;
+    
+    /** Descriptive textual label prefixed before the multi-park dropdown layout selection field. */
     @FXML private Label lblPark;
+    
+    /** ComboBox displaying selectable national parks, isolated for Department Manager scope overrides. */
     @FXML private ComboBox<String> parkBox;
+    
+    /** Map linking localized park name strings to their corresponding unique numeric internal database primary IDs. */
     private HashMap<String, Integer> parkIdMap = new HashMap<>();
+    
+    /** Internal state tracker tracking the currently active running report keyword ("VISITS", "USAGE", etc.). */
     private String currentReport = "";
+    
+    /** Caches the permission role identifier of the active system session user. */
     private String userRole = "";
+    
+    /** Stores the specific native operating national park identifier attached to a localized Park Manager profile. */
     private int userParkId = -1;
 
+    /** Constant array indexing the standard English naming conventions sequence matching calendar months. */
     private static final String[] MONTHS = {
         "January","February","March","April","May","June",
         "July","August","September","October","November","December"
     };
 
+    /**
+     * Bootstraps foundational profile properties and privileges defining how data arrays are filtered.
+     * <p>
+     * Hides specific reporting features unavailable to standalone Park Managers or enables cross-park 
+     * search filtering elements specifically for regional Department Managers.
+     * </p>
+     *
+     * @param role   The security role authorization string of the authenticated user.
+     * @param parkId Unique identification number of the park managed by the user (-1 if regional).
+     */
     public void initData(String role, int parkId) {
         this.userRole = role;
         this.userParkId = parkId;
@@ -61,6 +118,12 @@ public class ReportsController {
         }
     }
 
+    /**
+     * Populates the departmental combo box filter option tree with active national park models retrieved from the server.
+     * Called asynchronously from network connection incoming packet listeners.
+     *
+     * @param parks Nested string array matrix containing database park records.
+     */
     public void setParks(ArrayList<ArrayList<String>> parks) {
         parkIdMap.clear();
         parkBox.getItems().clear();
@@ -74,6 +137,11 @@ public class ReportsController {
         parkBox.getSelectionModel().selectFirst();
     }
     
+    /**
+     * Resolves the target destination identification query scope constraint.
+     *
+     * @return Target internal numeric park database identifier key (-1 represents a global cross-park search request).
+     */
     private int getSelectedParkId() {
         if ("DEPARTMENT_MANAGER".equals(userRole)) {
             String selected = parkBox.getValue();
@@ -82,6 +150,11 @@ public class ReportsController {
         }
         return userParkId;
     }
+
+    /**
+     * Initializes structural combo box selections automatically upon establishing the FXML window node stage.
+     * Sets historical choices targeting a 3-year trailing window and targets the previous trailing calendar month default.
+     */
     @FXML
     public void initialize() {
         monthBox.getItems().addAll(MONTHS);
@@ -95,15 +168,30 @@ public class ReportsController {
         yearBox.getSelectionModel().selectFirst();
     }
 
+    /**
+     * Maps the combo box selection index directly to a standard numerical month sequence number.
+     *
+     * @return Integer sequence identifying the targeted calendar month (1 through 12).
+     */
     private int getSelectedMonth() {
         return monthBox.getSelectionModel().getSelectedIndex() + 1;
     }
 
+    /**
+     * Pulls the selected numeric string character series translating the target report calendar year boundaries.
+     *
+     * @return Numerical calendar year value.
+     */
     private int getSelectedYear() {
         String y = yearBox.getValue();
         return y != null ? Integer.parseInt(y) : LocalDate.now().getYear();
     }
 
+    /**
+     * Validates that the month and year criteria fields are correctly populated prior to compiling server query requests.
+     *
+     * @return {@code true} if both inputs hold valid non-null criteria selections; {@code false} otherwise.
+     */
     private boolean validateMonthYear() {
         if (monthBox.getValue() == null || yearBox.getValue() == null) {
             lblStatus.setText("Please select a month and year first.");
@@ -112,6 +200,9 @@ public class ReportsController {
         return true;
     }
 
+    /**
+     * Dispatches a structured transaction command upstream toward the server channel pulling entry-exit traffic records.
+     */
     @FXML
     private void onVisitsReport() {
         if (!validateMonthYear()) return;
@@ -129,6 +220,9 @@ public class ReportsController {
         }
     }
 
+    /**
+     * Dispatches a structured transaction command upstream toward the server channel pulling occupancy-to-capacity metrics.
+     */
     @FXML
     private void onUsageReport() {
         if (!validateMonthYear()) return;
@@ -144,6 +238,9 @@ public class ReportsController {
         }
     }
 
+    /**
+     * Dispatches a structured transaction command upstream toward the server channel pulling data regarding cancelled bookings.
+     */
     @FXML
     private void onCancellationsReport() {
         if (!validateMonthYear()) return;
@@ -159,6 +256,9 @@ public class ReportsController {
         }
     }
 
+    /**
+     * Dispatches a structured transaction command upstream toward the server channel pulling visitor type breakdowns.
+     */
     @FXML
     private void onVisitorCountReport() {
         if (!validateMonthYear()) return;
@@ -176,6 +276,13 @@ public class ReportsController {
         }
     }
 
+    /**
+     * Intercepts incoming matrix data buffers from the server framework and routes them 
+     * to the appropriate chart-building engine based on the current context tracker.
+     * Called asynchronously from network client threads.
+     *
+     * @param data Multi-dimensional list collection containing records returned from database queries.
+     */
     public void setReportData(ArrayList<ArrayList<String>> data) {
         switch (currentReport) {
             case "VISITS":         buildVisitsReport(data != null ? data : new ArrayList<>()); break;
@@ -185,6 +292,12 @@ public class ReportsController {
         }
     }
 
+    /**
+     * Compiles data records to construct a multi-series BarChart tracking visitor volume entry trends by calendar day.
+     * Segments bars within individual categories by visitor group classification models.
+     *
+     * @param data Multi-dimensional tracking payload mapping the raw operational visit records.
+     */
     private void buildVisitsReport(ArrayList<ArrayList<String>> data) {
         String monthLabel = monthBox.getValue() + " " + yearBox.getValue();
 
@@ -237,6 +350,11 @@ public class ReportsController {
         lblStatus.setText("Visits report — " + monthLabel + " — " + data.size() + " records.");
     }
 
+    /**
+     * Assembles a double-bar comparative chart rendering total daily park attendance numbers alongside remaining open quota limits.
+     *
+     * @param data Multi-dimensional analytics tracking records array.
+     */
     private void buildUsageReport(ArrayList<ArrayList<String>> data) {
         String monthLabel = monthBox.getValue() + " " + yearBox.getValue();
 
@@ -282,6 +400,12 @@ public class ReportsController {
         lblStatus.setText("Usage report — " + monthLabel + " — " + data.size() + " days.");
     }
 
+    /**
+     * Builds a comprehensive PieChart mapping proportional cancellation distributions (e.g., proactive cancellation vs. automated no-show).
+     * Calculates mathematical statistics including mean average daily incident rates.
+     *
+     * @param data Multi-dimensional dataset tracking unfulfilled booking profiles.
+     */
     private void buildCancellationsReport(ArrayList<ArrayList<String>> data) {
         String monthLabel = monthBox.getValue() + " " + yearBox.getValue();
 
@@ -291,9 +415,7 @@ public class ReportsController {
             return;
         }
 
-        // Count by status for pie chart
         Map<String, Integer> countByStatus = new LinkedHashMap<>();
-        // Count by date for average calculation
         Map<String, Integer> countByDate = new LinkedHashMap<>();
         int totalCancelled = 0;
         int totalNoShow = 0;
@@ -351,6 +473,12 @@ public class ReportsController {
             monthLabel, totalCancelled, totalNoShow, totalDays, avgPerDay));
     }
 
+    /**
+     * Builds an illustrative visual distribution PieChart displaying cumulative headcount volumes divided by visitor type.
+     * Segments tracking counts between Group Guides, Subscribers, and Individual public travelers.
+     *
+     * @param data Multi-dimensional dataset profiling visitor classification fields.
+     */
     private void buildVisitorCountReport(ArrayList<ArrayList<String>> data) {
         String monthLabel = monthBox.getValue() + " " + yearBox.getValue();
 
@@ -360,7 +488,6 @@ public class ReportsController {
             return;
         }
 
-        // Pie chart showing breakdown by visitor type
         Map<String, Integer> countByType = new LinkedHashMap<>();
         for (ArrayList<String> row : data) {
             countByType.merge(row.get(1), Integer.parseInt(row.get(2)), Integer::sum);
@@ -381,7 +508,6 @@ public class ReportsController {
             total += entry.getValue();
         }
 
-        final int finalTotal = total;
         javafx.application.Platform.runLater(() -> {
             int i = 0;
             for (PieChart.Data d : pieChart.getData()) {
@@ -403,10 +529,15 @@ public class ReportsController {
         lblStatus.setText("Visitor Count — " + monthLabel + " — " + total + " total visitors.");
     }
 
+    /**
+     * Styles BarChart nodes with custom colors and dark theme styles using a dynamic raw CSS injection pipeline.
+     * Modifies graph canvas grids, labels, text spacing fill properties, and operational legends on the JavaFX application thread.
+     *
+     * @param chart The {@link BarChart} node targeting visual transformation properties.
+     */
     private void styleBarChart(BarChart<String, Number> chart) {
         String[] barColors = {"#e53935", "#fb8c00", "#43a047", "#1e88e5", "#8e24aa"};
 
-        // Inject CSS directly into the chart so colors apply before render
         StringBuilder css = new StringBuilder();
         for (int i = 0; i < barColors.length; i++) {
             css.append(".default-color").append(i).append(".chart-bar { -fx-bar-fill: ")
@@ -439,6 +570,14 @@ public class ReportsController {
         });
     }
 
+    /**
+     * Constructs table columns dynamically to display underlying report rows.
+     * Automatically formats raw database floats (truncating unnecessary double precision strings ending in {@code .0}).
+     *
+     * @param data       Multi-dimensional database matrix records collection.
+     * @param headers    Array sequence listing localized programmatic grid view column header names.
+     * @param colIndexes Integer mapping indices specifying how values map to internal row index lookups.
+     */
     @SuppressWarnings("unchecked")
     private void buildTable(ArrayList<ArrayList<String>> data, String[] headers, int[] colIndexes) {
         reportTable.getColumns().clear();
@@ -476,6 +615,10 @@ public class ReportsController {
         });
     }
 
+    /**
+     * Flushes active layout properties, resetting charts, rows, and grid parameters 
+     * before initiating a brand new network data transaction query request.
+     */
     private void clearAll() {
         chartPane.getChildren().clear();
         reportTable.getColumns().clear();
@@ -483,6 +626,10 @@ public class ReportsController {
         lblStatus.setText("Loading...");
     }
 
+    /**
+     * Aborts active analytical workflows and re-allocates window scene nodes back 
+     * toward the user role's primary structural dashboard menu panel view.
+     */
     @FXML
     private void onBack() {
         try {

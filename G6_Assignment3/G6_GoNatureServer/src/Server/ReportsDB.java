@@ -6,14 +6,49 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 
+/**
+ * Class {@code ReportsDB} handles the backend data compilation queries for the reporting system 
+ * in the GoNature server application.
+ * <p>
+ * This class interacts directly with the database via {@link DBController} using raw SQL and 
+ * parameterized {@link PreparedStatement} definitions. It generates detailed monthly summaries covering:
+ * <ul>
+ * <li>Park visits including exact stay-durations and visitor types.</li>
+ * <li>Park capacity usage and occupancy tracking grids.</li>
+ * <li>Cancellations and no-show logs (incorporating automated non-confirmed status checks).</li>
+ * <li>Visitor segmentation ratios calculated both globally and isolated per park.</li>
+ * </ul>
+ * </p>
+ *
+ * @author GoNature Development Team
+ * @version 1.0
+ */
 public class ReportsDB {
 
+    /** Low-level database communication controller managing basic JDBC drivers and persistent connections. */
     private DBController dbController;
 
+    /**
+     * Constructs a {@code ReportsDB} structural manager mapping the foundational 
+     * shared connection layout provider.
+     *
+     * @param dbController The primary shared relational database transaction execution wrapper.
+     */
     public ReportsDB(DBController dbController) {
         this.dbController = dbController;
     }
 
+    /**
+     * Generates a monthly tracking data matrix compiling visits and precise stay-durations isolated to a single park.
+     * Automatically resolves visitor segmentation types by overwriting standard walk-in descriptions with 
+     * explicit 'SUBSCRIBER' markers if the corresponding reference booking was matching a subscription profile.
+     *
+     * @param parkId Unique identifier indexing the target national park location.
+     * @param month  Numerical target calendar month boundaries filter (1-12).
+     * @param year   Numerical target calendar year boundaries filter.
+     * @return Two-dimensional list dataset mapping rows detailing entry-exit sequences and stay metrics.
+     * @throws SQLException If database execution parameters or connections malfunction.
+     */
     public ArrayList<ArrayList<String>> getVisitsReportByPark(int parkId, int month, int year) throws SQLException {
         Connection conn = dbController.getConnection();
         String sql =
@@ -52,6 +87,14 @@ public class ReportsDB {
         return result;
     }
 
+    /**
+     * Generates a monthly tracking data matrix compiling visits across all parks simultaneously.
+     *
+     * @param month Numerical target calendar month boundaries filter (1-12).
+     * @param year  Numerical target calendar year boundaries filter.
+     * @return Two-dimensional list dataset mapping rows detailing cross-park entry-exit sequences.
+     * @throws SQLException If database execution parameters or connections malfunction.
+     */
     public ArrayList<ArrayList<String>> getVisitsReportAllParks(int month, int year) throws SQLException {
         Connection conn = dbController.getConnection();
         String sql =
@@ -88,6 +131,16 @@ public class ReportsDB {
         return result;
     }
 
+    /**
+     * Compiles daily occupancy and utilization data loops tracking how well a single target park maximized its allotted quotas.
+     * Computes the daily net aggregate headcount against standard capacity boundaries.
+     *
+     * @param parkId Unique identifier indexing the target national park.
+     * @param month  Numerical target calendar month boundaries filter (1-12).
+     * @param year   Numerical target calendar year boundaries filter.
+     * @return Two-dimensional list dataset profiling aggregated daily capacities, max indices, and final open quotas.
+     * @throws SQLException If database execution parameters or connections malfunction.
+     */
     public ArrayList<ArrayList<String>> getUsageReport(int parkId, int month, int year) throws SQLException {
         Connection conn = dbController.getConnection();
         String sql =
@@ -121,6 +174,20 @@ public class ReportsDB {
         return result;
     }
 
+    /**
+     * Compiles an organization-wide analytical matrix detailing broken and unfulfilled booking appointments.
+     * <p>
+     * Merges structural tracking loops into two core queries: 
+     * 1. Proactive {@code CANCELLED} status modifications triggered directly by travelers or service reps.
+     * 2. Implicit {@code NO_SHOW} records, which count entries flagged explicitly as missed or unconfirmed 
+     * pending slots whose arrival dates dropped past the server execution clock boundaries.
+     * </p>
+     *
+     * @param month Numerical target calendar month boundaries filter (1-12).
+     * @param year  Numerical target calendar year boundaries filter.
+     * @return Two-dimensional list dataset combining cancellation metrics and total counts sorted by date sequences.
+     * @throws SQLException If database execution parameters or connections malfunction.
+     */
     public ArrayList<ArrayList<String>> getCancellationsReport(int month, int year) throws SQLException {
         Connection conn = dbController.getConnection();
 
@@ -150,7 +217,6 @@ public class ReportsDB {
         }
         rs.close(); ps.close();
 
-        // NO_SHOW — includes explicit NO_SHOW status AND past PENDING/CONFIRMED
         String noShowSql =
             "SELECT p.name, DATE(r.visit_date), 'NO_SHOW', COUNT(*), SUM(r.num_visitors) " +
             "FROM reservations r " +
@@ -178,6 +244,16 @@ public class ReportsDB {
         return result;
     }
 
+    /**
+     * Compiles a segmented summary mapping cumulative visitor headcount sums grouped by their billing categories 
+     * (e.g. Group Guide, Subscriber, Individual traveler) isolated for a specific park.
+     *
+     * @param parkId Unique index tracking the targeted national park.
+     * @param month  Numerical target calendar month boundaries filter (1-12).
+     * @param year   Numerical target calendar year boundaries filter.
+     * @return Two-dimensional matrix array grouping totals per customer category label.
+     * @throws SQLException If database execution parameters or connections malfunction.
+     */
     public ArrayList<ArrayList<String>> getVisitorCountByPark(int parkId, int month, int year) throws SQLException {
         Connection conn = dbController.getConnection();
         String sql =
@@ -210,6 +286,15 @@ public class ReportsDB {
         return result;
     }
 
+    /**
+     * Compiles a cross-park segmented summary mapping cumulative visitor headcount categories 
+     * across all operating enterprise locations simultaneously.
+     *
+     * @param month  Numerical target calendar month boundaries filter (1-12).
+     * @param year   Numerical target calendar year boundaries filter.
+     * @return Two-dimensional matrix array listing categorical volume ratios mapped alongside park label names.
+     * @throws SQLException If database execution parameters or connections malfunction.
+     */
     public ArrayList<ArrayList<String>> getVisitorCountAllParks(int month, int year) throws SQLException {
         Connection conn = dbController.getConnection();
         String sql =
@@ -240,6 +325,16 @@ public class ReportsDB {
         return result;
     }
 
+    /**
+     * Compiles broken and unfulfilled booking appointments isolated to a specific park index location.
+     * Maps separate counts distinguishing direct cancellations from missed un-exited daily reservations.
+     *
+     * @param parkId Unique internal reference tracking the target park row.
+     * @param month  Numerical target calendar month boundaries filter (1-12).
+     * @param year   Numerical target calendar year boundaries filter.
+     * @return Two-dimensional list dataset packing localized parameter rows sorted chronologically.
+     * @throws SQLException If database execution parameters or connections malfunction.
+     */
     public ArrayList<ArrayList<String>> getCancellationsReportByPark(int parkId, int month, int year) throws SQLException {
         Connection conn = dbController.getConnection();
 

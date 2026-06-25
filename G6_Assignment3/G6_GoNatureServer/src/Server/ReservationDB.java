@@ -8,27 +8,60 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Random;
 
+/**
+ * מחלקת רכיב הגישה לנתונים (DAO) האחראית על ניהול הזמנות ורשימות המתנה בבסיס הנתונים.
+ * המחלקה מטפלת ביצירת הזמנות, עדכונים, ביטולים, חישובי מחירים, ניהול תורים (Waiting List)
+ * ומנגנוני תזכורות אוטומטיים עבור מערכת ניהול הפארקים.
+ * * @author Fares Ali Naser
+ * @version 1.0
+ */
 public class ReservationDB {
 
+    /** בקר בסיס הנתונים המשמש לקבלת חיבורים פעילים */
     private DBController dbController;
+    
+    /** מחולל מספרים אקראיים ליצירת קודי אישור */
     private static final Random RANDOM = new Random();
 
+    /**
+     * בנאי המאתחל את רכיב הגישה לנתוני ההזמנות עם בקר בסיס הנתונים שסופק.
+     *
+     * @param dbController בקר בסיס הנתונים לניהול החיבורים
+     */
     public ReservationDB(DBController dbController) {
         this.dbController = dbController;
     }
     
+    /**
+     * ממשק (Interface) המשמש כפונקציית חזרה (Callback) לצורך דחיפת התראות
+     * בזמן אמת למשתמשים מחוברים (למשל, הודעות על רשימת המתנה).
+     */
     public interface NotificationCallback {
+        /**
+         * שולח התראה למשתמש ספציפי.
+         *
+         * @param username שם המשתמש הייחודי של היעד
+         * @param message אובייקט הודעת התוכן של ההתראה
+         */
         void notifyUser(String username, Object message);
     }
 
+    /** מאזין ה-Callback הרשום לשליחת התראות בזמן אמת */
     private NotificationCallback notificationCallback;
 
+    /**
+     * מגדיר את ה-Callback לניהול התראות המשתמש במערכת.
+     *
+     * @param callback מימוש ממשק ההתראות
+     */
     public void setNotificationCallback(NotificationCallback callback) {
         this.notificationCallback = callback;
     }
 
     /**
-     * Generates a random 8-digit numeric confirmation code.
+     * מייצר קוד אישור אקראי בעל 8 ספרות עבור הזמנה חדשה.
+     *
+     * @return מחרוזת המייצגת קוד אישור בן 8 ספרות
      */
     private String generateConfirmationCode() {
         int code = 10000000 + RANDOM.nextInt(90000000);
@@ -36,9 +69,18 @@ public class ReservationDB {
     }
 
     /**
-     * Checks whether the park has capacity for the given visit slot.
-     * Counts both PENDING and CONFIRMED reservations against capacity.
-     * Excludes a specific reservation ID from the overlap check (used during edits).
+     * בודקת האם לפארק מסוים יש מספיק קיבולת פנויה עבור חלון זמן מבוקש של ביקור.
+     * המתודה משקללת הן הזמנות במצב PENDING והן במצב CONFIRMED, ומאפשרת החרגה של מזהה הזמנה 
+     * מסוים (משמש בעת עריכת/עדכון הזמנה קיימת כדי לא לספור את עצמה פעמיים).
+     *
+     * @param conn חיבור פעיל לבסיס הנתונים
+     * @param parkId מזהה הפארק הייחודי
+     * @param visitDate תאריך הביקור המבוקש
+     * @param startTime שעת הכניסה המבוקשת
+     * @param numVisitors מספר המבקרים בקבוצה
+     * @param excludeReservationId מזהה הזמנה להחרגה מהחישוב (0 אם אין החרגה)
+     * @return true אם יש מספיק מקום פנוי בפארק, false אחרת
+     * @throws SQLException אם תתרחש שגיאה בביצוע שאילתות ה-SQL
      */
     private boolean isParkAvailable(Connection conn, int parkId, java.sql.Date visitDate,
             java.sql.Time startTime, int numVisitors, int excludeReservationId) throws SQLException {
@@ -93,7 +135,13 @@ public class ReservationDB {
     }
 
     /**
-     * Calculates total price based on reservation type, traveler type, and prepaid status.
+     * מחשבת את המחיר הכולל עבור הזמנה בהתבסס על סוג ההזמנה (משפחתית/קבוצתית),
+     * סוג המטייל (מנוי/מדריך), והאם בוצע תשלום מראש (Prepaid).
+     *
+     * @param conn חיבור פעיל לבסיס הנתונים
+     * @param r אובייקט ההזמנה המכיל את נתוני המבקר והפארק
+     * @return המחיר הסופי המחושב לאחר הנחות
+     * @throws SQLException אם תתרחש שגיאה בביצוע שאילתות ה-SQL
      */
     private double calculatePrice(Connection conn, Reservation r) throws SQLException {
         String sql = "SELECT full_price, promotion_discount FROM parks WHERE id = ?";
@@ -138,8 +186,12 @@ public class ReservationDB {
     }
 
     /**
-     * Creates a new reservation with status PENDING.
-     * Returns "SUCCESS:CODE:PRICE" or "FULL:..." or "ERROR:...".
+     * יוצרת הזמנה חדשה במערכת עם סטטוס ראשוני 'PENDING'.
+     * המתודה מסונכרנת (synchronized) ונועלת את הטרנזקציה כדי למנוע רישום יתר (Overbooking).
+     *
+     * @param r אובייקט ההזמנה החדש שיש לשמור במערכת
+     * @return מחרוזת תשובה במבנה "SUCCESS:CODE:PRICE" במקרה של הצלחה, "FULL:..." אם אין מקום, או "ERROR:..."
+     * @throws SQLException אם תתרחש שגיאת מסד נתונים במהלך הפעולה
      */
     public synchronized String createReservation(Reservation r) throws SQLException {
         Connection conn = dbController.getConnection();
@@ -195,7 +247,13 @@ public class ReservationDB {
     }
 
     /**
-     * Returns all reservations for a given traveler as rows of strings for the TableView.
+     * שליפת כל ההזמנות המשוייכות למטייל ספציפי. 
+     * הנתונים מוחזרים כמבנה של רשימת שורות (רשימות של מחרוזות) המתאים ישירות להצגה ב-TableView של ה-UI.
+     *
+     * @param travelerId מזהה המטייל
+     * @param travelerType סוג המטייל (למשל: VISITOR, SUBSCRIBER, GUIDE)
+     * @return רשימה דו-ממדית המכילה את שורות נתוני ההזמנות של המטייל
+     * @throws SQLException אם תתרחש שגיאה במהלך שליפת הנתונים מה-DB
      */
     public ArrayList<ArrayList<String>> getReservationsByTraveler(int travelerId, String travelerType) throws SQLException {
         Connection conn = dbController.getConnection();
@@ -231,8 +289,15 @@ public class ReservationDB {
     }
 
     /**
-     * Updates date, time, and visitor count for an existing reservation.
-     * Re-checks park availability (PENDING+CONFIRMED) before applying the change.
+     * מעדכנת את פרטי התאריך, שעת הכניסה ומספר המבקרים עבור הזמנה קיימת.
+     * מבצעת בדיקת זמינות מקום מחודשת לפני שמירת השינויים ומפיקה קוד אישור חדש.
+     *
+     * @param reservationId מזהה ההזמנה לעדכון
+     * @param visitDate תאריך הביקור החדש (בפורמט מחרוזת YYYY-MM-DD)
+     * @param entryTime שעת הכניסה החדשה (בפורמט מחרוזת HH:MM:SS)
+     * @param numVisitors מספר המבקרים המעודכן
+     * @return true אם ההזמנה עודכנה בהצלחה, false אם אין מקום פנוי או שההזמנה כבר מבוטלת
+     * @throws SQLException אם תתרחש שגיאה בעדכון מסד הנתונים
      */
     public boolean updateReservation(int reservationId, String visitDate, String entryTime, int numVisitors) throws SQLException {
         Connection conn = dbController.getConnection();
@@ -281,8 +346,15 @@ public class ReservationDB {
     }
 
     /**
-     * Cancels a reservation by setting status to CANCELLED.
-     * Safety check: only cancels if it belongs to the given traveler.
+     * מבטלת הזמנה קיימת במערכת על ידי שינוי הסטטוס שלה ל-'CANCELLED'.
+     * כבדיקת בטיחות, הביטול יתבצע רק אם ההזמנה אכן שייכת למטייל המבקש. 
+     * לאחר הביטול, המערכת מנסה אוטומטית להציע את המקום שהתפנה לאדם הבא בתור ברשימת ההמתנה.
+     *
+     * @param reservationId מזהה ההזמנה לביטול
+     * @param travelerId מזהה המטייל המבקש את הביטול
+     * @param travelerType סוג המטייל המבקש את הביטול
+     * @return true אם הביטול בוצע בהצלחה, false אחרת
+     * @throws SQLException אם תתרחש שגיאה בעדכון בסיס הנתונים
      */
     public boolean deleteReservation(int reservationId, int travelerId, String travelerType) throws SQLException {
         Connection conn = dbController.getConnection();
@@ -326,6 +398,13 @@ public class ReservationDB {
         return rows > 0;
     }
 
+    /**
+     * שולפת את רשימת כל הפארקים הקיימים במערכת (מזהה ושם).
+     * מתודה זו שימושית בעיקר לצורך אכלוס תיבות בחירה (ComboBox) ב-UI.
+     *
+     * @return רשימה דו-ממדית של כל הפארקים הכוללת [מזהה, שם] לכל פארק
+     * @throws SQLException אם תתרחש שגיאה בשליפת הפארקים
+     */
     public ArrayList<ArrayList<String>> getParks() throws SQLException {
         Connection conn = dbController.getConnection();
 
@@ -347,6 +426,13 @@ public class ReservationDB {
         return result;
     }
 
+    /**
+     * שולפת רשימת מזהי הזמנות הנמצאות בסטטוס PENDING, שטרם נשלחה אליהן תזכורת,
+     * ומועד הביקור שלהן חל מחר (הפרש של יום אחד מהתאריך הנוכחי).
+     *
+     * @return רשימת מזהי ההזמנות שזקוקות לשליחת תזכורת
+     * @throws SQLException אם תתרחש שגיאה בשאילתת ה-SQL
+     */
     public ArrayList<Integer> getReservationsNeedingReminder() throws SQLException {
         Connection conn = dbController.getConnection();
 
@@ -370,6 +456,12 @@ public class ReservationDB {
         return ids;
     }
 
+    /**
+     * מסמנת הזמנה ספציפית ככזו שנשלחה אליה תזכורת, ומעדכנת את חותמת הזמן של השליחה.
+     *
+     * @param reservationId מזהה ההזמנה שקיבלה תזכורת
+     * @throws SQLException אם העדכון בבסיס הנתונים נכשל
+     */
     public void markReminderSent(int reservationId) throws SQLException {
         Connection conn = dbController.getConnection();
 
@@ -385,6 +477,12 @@ public class ReservationDB {
         ps.close();
     }
 
+    /**
+     * מנגנון ביטול אוטומטי: מבטל הזמנות במצב PENDING שנשלחה אליהן תזכורת
+     * אך המשתמש לא אישר אותן בתוך חלון הזמן המוקצב של שעתיים.
+     *
+     * @throws SQLException אם חל כשל בעדכון הסטטוסים בבסיס הנתונים
+     */
     public void autoCancelExpiredReservations() throws SQLException {
         Connection conn = dbController.getConnection();
 
@@ -400,6 +498,12 @@ public class ReservationDB {
         ps.close();
     }
 
+    /**
+     * מנגנון ניקוי אוטומטי: מבטל את כל ההזמנות שנשארו במצב PENDING
+     * ותאריך הביקור המתוכנן שלהן כבר עבר (נמוך מהתאריך הנוכחי).
+     *
+     * @throws SQLException אם העדכון האוטומטי נכשל בבסיס הנתונים
+     */
     public void autoCancelUnconfirmed() throws SQLException {
         Connection conn = dbController.getConnection();
 
@@ -414,6 +518,12 @@ public class ReservationDB {
         ps.close();
     }
 
+    /**
+     * סימולציית עיבוד רשימת המתנה. שולפת את כל הרשומות לפי סדר המיקום שלהן בתור
+     * ומדפיסה הודעת סימולציה על שליחת מייל ללוג המערכת.
+     *
+     * @throws SQLException אם השליפה מתוך טבלת רשימת ההמתנה נכשלה
+     */
     public void processWaitingList() throws SQLException {
         Connection conn = dbController.getConnection();
 
@@ -432,6 +542,14 @@ public class ReservationDB {
         ps.close();
     }
 
+    /**
+     * מוסיפה הזמנה לתור רשימת ההמתנה עבור פלח זמן ספציפי בפארק.
+     * המתודה מוודא תחילה שגודל הקבוצה אינו עולה באופן תיאורטי על הקיבולת המרבית המותרת של הפארק.
+     *
+     * @param r אובייקט ההזמנה שמבקש להיכנס לרשימת ההמתנה
+     * @return true אם ההוספה לרשימת ההמתנה הצליחה, false אם גודל הקבוצה חורג ממכסת הפארק הכוללת
+     * @throws SQLException אם חלה שגיאה במהלך ההוספה לטבלת רשימת ההמתנה
+     */
     public boolean addToWaitingList(Reservation r) throws SQLException {
         Connection conn = dbController.getConnection();
 
@@ -493,6 +611,17 @@ public class ReservationDB {
         return rows > 0;
     }
     
+    /**
+     * מחשבת את מספר המקומות התפוסים והפנויים עבור פארק, תאריך ושעה מוגדרים.
+     * הלוגיקה לוקחת בחשבון את משך השהות הממוצע בפארק ובודקת חפיפות זמנים (Overlap)
+     * מול הזמנות במצבים: 'PENDING', 'CONFIRMED', ו-'INSIDE'.
+     *
+     * @param parkId מזהה הפארק
+     * @param visitDate תאריך הביקור המבוקש
+     * @param entryTime שעת הכניסה המבוקשת
+     * @return מערך דינמי המכיל שני איברים: [0] כמות המקומות המוזמנים, [1] כמות המקומות הפנויים שנותרו
+     * @throws SQLException אם השאילתה מול בסיס הנתונים נכשלת
+     */
     public ArrayList<Integer> getAvailability(int parkId, String visitDate, String entryTime) throws SQLException {
         Connection conn = dbController.getConnection();
 
@@ -545,6 +674,16 @@ public class ReservationDB {
         return result;
     }
 
+    /**
+     * מאשרת תזכורת ביקור על ידי המשתמש. מעדכנת את סטטוס ההזמנה מ-'PENDING' ל-'CONFIRMED'
+     * ומסמנת כי בוצע אישור תזכורת (`reminder_confirmed = TRUE`).
+     *
+     * @param reservationId מזהה ההזמנה לאישור
+     * @param travelerId מזהה המטייל המאשר
+     * @param travelerType סוג המטייל המאשר
+     * @return true אם הסטטוס עודכן בהצלחה, false אחרת
+     * @throws SQLException אם חלה שגיאה בביצוע ה-Update
+     */
     public boolean confirmReminder(int reservationId, int travelerId, String travelerType) throws SQLException {
         Connection conn = dbController.getConnection();
 
@@ -562,6 +701,13 @@ public class ReservationDB {
         return rows > 0;
     }
 
+    /**
+     * סורקת את ההזמנות ושולחת תזכורות ביקור (בסימולציה) עבור כל ההזמנות במצב PENDING
+     * שמועד ביקורן חל בטווח של 23 עד 25 שעות מעכשיו (חלון זמן של 24 שעות).
+     * לאחר מכן מעדכנת את שורות אלו בבסיס הנתונים כנשלחו.
+     *
+     * @throws SQLException אם חל כשל במהלך סריקת או עדכון ההזמנות
+     */
     public void sendVisitReminders() throws SQLException {
         Connection conn = dbController.getConnection();
 
@@ -594,6 +740,12 @@ public class ReservationDB {
         updatePs.close();
     }
 
+    /**
+     * מבטלת אוטומטית הזמנות מסוג PENDING שתזכורת נשלחה אליהן אך חלפו למעלה משעתיים
+     * ללא אישור מצד המשתמש. עבור כל הזמנה שמבוטלת, מופעל מנגנון עדכון רשימת ההמתנה.
+     *
+     * @throws SQLException אם חלה שגיאה בבסיס הנתונים במהלך הביטולים או עדכון רשימת ההמתנה
+     */
     public void autoCancelUnconfirmedReservations() throws SQLException {
         Connection conn = dbController.getConnection();
 
@@ -627,6 +779,16 @@ public class ReservationDB {
         ps.close();
     }
 
+    /**
+     * מאתרת ומעדכנת את האדם הבא בתור ברשימת ההמתנה (הסטטוס משתנה ל-'NOTIFIED')
+     * שגודל הקבוצה שלו מתאים למספר המקומות שהתפנו כרגע בחלון הזמן המוגדר.
+     * במידה והמשתמש מחובר כעת למערכת, נדחפת אליו התראה בזמן אמת (Push Notification) באמצעות ה-Callback.
+     *
+     * @param parkId מזהה הפארק בו התפנה מקום
+     * @param visitDate תאריך חלון הזמן הרלוונטי
+     * @param entryTime שעת חלון הזמן הרלוונטי
+     * @throws SQLException אם השליפה או עדכוני הנתונים נכשלים
+     */
     public void notifyNextWaitingTraveler(int parkId, java.sql.Date visitDate, java.sql.Time entryTime) throws SQLException {
         Connection conn = dbController.getConnection();
 
@@ -720,6 +882,14 @@ public class ReservationDB {
         ps.close();
     }
     
+    /**
+     * פונקציית עזר פנימית המאתרת את שם המשתמש (Username / ID Number) של מטייל
+     * בהתאם לסוג הישות שלו בבסיס הנתונים (מבקר רגיל, מנוי או מדריך).
+     *
+     * @param travelerId מזהה המטייל במסד הנתונים
+     * @param travelerType סוג המטייל (VISITOR, SUBSCRIBER, GUIDE)
+     * @return שם המשתמש/תעודת הזהות של המטייל, או null אם אינו נמצא או שחל כשל
+     */
     private String lookupUsername(int travelerId, String travelerType) {
         try {
             String sql;
@@ -742,6 +912,12 @@ public class ReservationDB {
         return null;
     }
 
+    /**
+     * מעדכנת לסטטוס 'EXPIRED' את כל הצעות רשימת ההמתנה שזמן הפקיעה שלהן עבר,
+     * וכן הצעות שתאריך ושעת הביקור שלהן כבר חלפו לחלוטין.
+     *
+     * @throws SQLException אם חל כשל בביצוע העדכון במסד הנתונים
+     */
     public void expireWaitingListOffers() throws SQLException {
         Connection conn = dbController.getConnection();
 
@@ -762,6 +938,16 @@ public class ReservationDB {
         oldPs.close();
     }
     
+    /**
+     * שולפת רשימת תזכורות הממתינות לאישור המשתמש הנוכחי (סטטוס PENDING, תזכורת נשלחה,
+     * וטרם עברו שעתיים מחלון הזמן לאישור).
+     * מיועד להצגת התראות אקטיביות בממשק הגרפי (UI).
+     *
+     * @param travelerId מזהה המטייל המחובר
+     * @param travelerType סוג המטייל המחובר
+     * @return רשימה דו-ממדית של שורות התזכורות הממתינות לאישור
+     * @throws SQLException אם השילוף נכשל
+     */
     public ArrayList<ArrayList<String>> getPendingReminders(int travelerId, String travelerType) throws SQLException {
         Connection conn = dbController.getConnection();
         String sql =
@@ -787,13 +973,22 @@ public class ReservationDB {
             row.add(String.valueOf(rs.getDate(3)));
             row.add(String.valueOf(rs.getTime(4)));
             row.add(String.valueOf(rs.getInt(5)));
-            row.add(rs.getString(6));
+            row.add(String.valueOf(rs.getString(6)));
             result.add(row);
         }
         rs.close();
         ps.close();
         return result;
     }
+
+    /**
+     * מעדכנת את הסטטוס ל-'reminder_sent = TRUE' באופן יזום עבור מטייל ספציפי,
+     * במידה וההזמנה שלו נמצאת בטווח של 24 שעות ממועד הביקור.
+     *
+     * @param travelerId מזהה המטייל
+     * @param travelerType סוג המטייל
+     * @throws SQLException אם חלה שגיאה בביצוע העדכון בבסיס הנתונים
+     */
     public void sendVisitRemindersForUser(int travelerId, String travelerType) throws SQLException {
         Connection conn = dbController.getConnection();
 
@@ -811,6 +1006,15 @@ public class ReservationDB {
         ps.close();
     }
     
+    /**
+     * שולפת את כל הודעות רשימת ההמתנה הפעילות שבסטטוס 'NOTIFIED' עבור משתמש מסוים,
+     * אשר זמן פקיעת ההצעה שלהן טרם עבר. משמש להצגת חלונות בחירה/אישור ב-UI של הלקוח.
+     *
+     * @param travelerId מזהה המטייל
+     * @param travelerType סוג המטייל
+     * @return רשימה דו-ממדית של התראות תור הממתינות לתגובת המשתמש
+     * @throws SQLException אם שליפת הנתונים נכשלה
+     */
     public ArrayList<ArrayList<String>> getPendingWaitingListNotifications(int travelerId, String travelerType) throws SQLException {
         Connection conn = dbController.getConnection();
         String sql =
@@ -842,6 +1046,17 @@ public class ReservationDB {
         return result;
     }
     
+    /**
+     * מאשרת מעבר מרשימת ההמתנה להזמנה קבועה ומאושרת. 
+     * המתודה בודקת שוב זמינות מקום בפועל; אם יש מקום, נוצרת הזמנה רגילה חדשה בסטטוס 'CONFIRMED'
+     * ורשומת רשימת ההמתנה מסומנת כ-'CONFIRMED'. אם אין מקום פנוי, ההצעה פוקעת ומבוטלת.
+     *
+     * @param waitingListId מזהה רשומת רשימת ההמתנה
+     * @param travelerId מזהה המטייל שמממש את ההצעה
+     * @param travelerType סוג המטייל שמממש את ההצעה
+     * @return true אם המעבר והפיכתה להזמנה אושרו והצליחו, false אם המקום נתפס או חלה שגיאה
+     * @throws SQLException אם חלה שגיאת מסד נתונים במהלך הפעולות המשולבות
+     */
     public boolean confirmFromWaitingList(int waitingListId, int travelerId, String travelerType) throws SQLException {
         Connection conn = dbController.getConnection();
 
@@ -906,6 +1121,14 @@ public class ReservationDB {
         return false;
     }
 
+    /**
+     * דוחה ומבטלת הצעת מקום שהתקבלה מרשימת ההמתנה. 
+     * הרשומה מסומנת כ-'EXPIRED', והמערכת קוראת מיידית לפונקציה שמציעה את המקום הפנוי לאדם הבא בתור.
+     *
+     * @param waitingListId מזהה רשומת רשימת ההמתנה שהמשתמש סירב לה
+     * @return true תמיד, לאחר סימון הרשומה וקריאה להבאת הבא בתור
+     * @throws SQLException אם עדכון הסטטוס נכשל
+     */
     public boolean declineWaitingList(int waitingListId) throws SQLException {
         Connection conn = dbController.getConnection();
 
@@ -939,6 +1162,16 @@ public class ReservationDB {
         }
         return true;
     }
+
+    /**
+     * שולפת את כל רישומי התור (רשימת ההמתנה) של מטייל מסוים שנמצאים במצב רלוונטי לתצוגה 
+     * ('WAITING', 'NOTIFIED', 'CANCELLED'). הנתונים מוחזרים במבנה המתאים ישירות ל-TableView.
+     *
+     * @param travelerId מזהה המטייל המבקש
+     * @param travelerType סוג המטייל המבקש
+     * @return רשימה דו-ממדית המייצגת את שורות רשימת ההמתנה של המשתמש
+     * @throws SQLException אם שליפת השורות נכשלה
+     */
     public ArrayList<ArrayList<String>> getWaitingListByTraveler(int travelerId, String travelerType) throws SQLException {
         Connection conn = dbController.getConnection();
         String sql =
@@ -971,6 +1204,15 @@ public class ReservationDB {
         return result;
     }
 
+    /**
+     * מאפשרת למשתמש לעזוב באופן יזום את רשימת ההמתנה אליה נרשם.
+     * הסטטוס משתנה ל-'CANCELLED' (על מנת לשמור היסטוריה ולא למחוק לחלוטין),
+     * והמערכת מפעילה בדיקה מחודשת כדי להציע את המקום שהתפנה לאדם הבא שממתין בתור.
+     *
+     * @param waitingListId מזהה הרשומה ברשימת ההמתנה שיש לבטל
+     * @return true אם הביטול והעזיבה עודכנו בהצלחה, false אחרת
+     * @throws SQLException אם חלה שגיאה בביצוע העדכונים ב-DB
+     */
     public boolean leaveWaitingList(int waitingListId) throws SQLException {
         Connection conn = dbController.getConnection();
 

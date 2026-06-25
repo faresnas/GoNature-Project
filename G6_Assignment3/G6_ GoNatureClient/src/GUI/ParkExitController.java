@@ -15,16 +15,50 @@ import javafx.scene.control.Label;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 
+/**
+ * Controller for the park exit screen.
+ * This class manages visitor exit operations from the park.
+ * It allows a park worker to register exits by confirmation code,
+ * traveler ID, or manually by entering the number of visitors leaving.
+ */
 public class ParkExitController {
 
+    /**
+     * Text field used to enter a visit ID, confirmation code, or traveler ID.
+     */
     @FXML private TextField txtVisitId;
+
+    /**
+     * Text field used to enter the number of visitors leaving manually.
+     */
     @FXML private TextField txtManualExitVisitors;
+
+    /**
+     * Text area used to display operation results and error messages.
+     */
     @FXML private TextArea txtResult;
+
+    /**
+     * Label used to display the current number of visitors in the park.
+     */
     @FXML private Label lblCurrentVisitors;
+
+    /**
+     * Label used to display the park name of the logged-in worker.
+     */
     @FXML private Label lblParkName;
 
+    /**
+     * The ID of the park managed by the logged-in park worker.
+     */
     private int workerParkId = 1;
 
+    /**
+     * Initializes the park exit screen.
+     * The method connects this controller to the OrderClient,
+     * loads the worker's park details, displays the park name,
+     * and refreshes the current visitor count.
+     */
     @FXML
     public void initialize() {
         OrderClient.parkExitController = this;
@@ -41,6 +75,13 @@ public class ParkExitController {
         refreshCurrentVisitors();
     }
 
+    /**
+     * Registers an exit using a confirmation code or traveler ID.
+     * The method validates the entered identifier and sends an exit request
+     * to the server.
+     *
+     * @param event the button click event
+     */
     @FXML
     void registerExit(ActionEvent event) {
         try {
@@ -56,6 +97,13 @@ public class ParkExitController {
         }
     }
 
+    /**
+     * Registers a manual exit by entering the number of visitors leaving the park.
+     * The method validates that the input is a positive number and sends the data
+     * to the server.
+     *
+     * @param event the button click event
+     */
     @FXML
     void registerManualExit(ActionEvent event) {
         try {
@@ -81,6 +129,9 @@ public class ParkExitController {
         }
     }
 
+    /**
+     * Requests the current number of visitors in the worker's park from the server.
+     */
     private void refreshCurrentVisitors() {
         try {
             OrderClient.lastCommand = "GET_CURRENT_VISITORS";
@@ -91,6 +142,13 @@ public class ParkExitController {
         }
     }
 
+    /**
+     * Handles the response returned from the server after an entry or exit operation.
+     * The method updates the current visitor label and displays the result message
+     * on the screen.
+     *
+     * @param response the response object received from the server
+     */
     public void handleEntryExitResponse(EntryExitResponse response) {
         if (response.isSuccess()) {
             lblCurrentVisitors.setText("Current visitors: " + response.getCurrentVisitors());
@@ -108,6 +166,11 @@ public class ParkExitController {
         txtResult.setText(sb.toString());
     }
 
+    /**
+     * Returns the park worker to the dashboard screen.
+     *
+     * @param event the button click event
+     */
     @FXML
     void backToDashboard(ActionEvent event) {
         try {

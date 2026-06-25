@@ -9,41 +9,120 @@ import ocsf.server.AbstractServer;
 import ocsf.server.ConnectionToClient;
 import data.Reservation;
 
+/**
+ * The {@code EchoServer} class serves as the central backend controller for the GoNature system.
+ * It extends {@link AbstractServer} from the OCSF framework to listen on a designated network port,
+ * intercept incoming transport packets from clients, and delegate structural transactions to specialized
+ * database subsystems (e.g., subsystem modules for entry/exit terminal operations, order processing, 
+ * report compilation, and management approval workflows).
+ * <p>
+ * It maintains state synchronization by caching active user sessions within a concurrent map and houses
+ * daemon infrastructure background tasks to automatically manage real-time events such as automated visitor 
+ * exit protocols and booking notifications.
+ * </p>
+ *
+ * @author GoNature Development Team
+ * @version 1.0
+ */
 public class EchoServer extends AbstractServer {
+    
+    /** Database management unit operating hardware gate terminal entry and exit evaluations. */
     private EntryExitDB entryExitDB = new EntryExitDB();
+    
+    /** Base primary persistence driver managing systemic low-level JDBC driver tracking channels. */
     private DBController dbController;
+    
+    /** Specialized subsystem handling reservation persistence logic, scheduling, and capacity audits. */
     private ReservationDB reservationDB;
+    
+    /** Management database handling guide/subscriber registrations and parameter change requests. */
     private ManagementDB managementDB;
+    
+    /** Reporting module executing analytic summaries, compiling stay-durations, and calculating cancellations. */
     private ReportsDB reportsDB;
+    
+    /** Database driver tracking raw tabular order changes and manual parameters. */
     private OrderDB orderDB;
+    
+    /** Internal watchdog system configured to automatically shut down idle server resources if no nodes attach. */
     private java.util.Timer connectionTimer;
+    
+    /** Thread-safe dictionary tracking concurrent verified client identities mapped to active network socket instances. */
     private Map<String, ConnectionToClient> activeSessions = new ConcurrentHashMap<>();
 
+    /** System logger adapter instance channeling system execution narratives out to physical server GUI panels. */
     private ServerLogCallback logCallback;
 
+    /**
+     * Interface providing callback capabilities to route operational logs from background thread tasks 
+     * out onto visible interface log controls.
+     */
     public interface ServerLogCallback {
+        /**
+         * Invoked to write descriptive tracking text out to targeted visualization interfaces.
+         *
+         * @param message Text tracing contextual execution statuses or structural tracking exceptions.
+         */
         void log(String message);
     }
 
+    /** Real-time callback monitor supervising network context attachments and registration tracking hooks. */
     private ClientListCallback clientListCallback;
 
+    /**
+     * Interface defining structural hooks to intercept physical connection modifications inside the 
+     * OCSF management framework.
+     */
     public interface ClientListCallback {
+        /**
+         * Fired immediately when a fresh client network connection establishes successfully on the port.
+         *
+         * @param clientId Generated temporal identifier token string tracking the client.
+         * @param ip       Target source IP network address string.
+         * @param host     Target source machine domain name lookup context.
+         */
         void onClientConnected(String clientId, String ip, String host);
+        
+        /**
+         * Fired immediately when a logged socket or connection context detaches from the server port.
+         *
+         * @param clientId Target programmatic tracking sequence identification tag.
+         */
         void onClientDisconnected(String clientId);
     }
 
+    /**
+     * Constructs a {@code EchoServer} listening instance targeting the defined port allocation sequence.
+     *
+     * @param port Target communication port index mapping where socket servers monitor.
+     */
     public EchoServer(int port) {
         super(port);
     }
 
+    /**
+     * Configures the programmatic log callback hook.
+     *
+     * @param callback Operational instance matching interface blueprints.
+     */
     public void setLogCallback(ServerLogCallback callback) {
         this.logCallback = callback;
     }
 
+    /**
+     * Configures the programmatic client monitoring socket hook.
+     *
+     * @param callback Operational instance matching interface blueprints.
+     */
     public void setClientListCallback(ClientListCallback callback) {
         this.clientListCallback = callback;
     }
 
+    /**
+     * Local routing helper funneling operational logs to the standard console and registered callback hooks.
+     *
+     * @param msg Text tracing state changes or structural exceptions.
+     */
     private void logMessage(String msg) {
         System.out.println(msg);
         if (logCallback != null) {
@@ -51,10 +130,26 @@ public class EchoServer extends AbstractServer {
         }
     }
     
+    /**
+     * Interface establishing standard structures allowing sub-module engines to selectively invoke real-time
+     * data pushes targeting distinct connected users.
+     */
     public interface NotificationCallback {
+        /**
+         * Forwards structured message payloads down onto explicit user channels.
+         *
+         * @param username Target distinctive user credentials key tracking session bindings.
+         * @param message  Transport parameters or data arrays targeted for delivery.
+         */
         void notifyUser(String username, Object message);
     }
 
+    /**
+     * Handles cleaning up internal references and mapping states when a connection breaks or requests teardown.
+     * Evicts cached records from session dictionaries and signals state listeners on the management thread.
+     *
+     * @param client The structural connection context item dropping communications.
+     */
     private void handleDisconnect(ConnectionToClient client) {
         if (client.getInfo("Disconnected") == null) {
             client.setInfo("Disconnected", true);
@@ -74,6 +169,12 @@ public class EchoServer extends AbstractServer {
         }
     }
 
+    /**
+     * Iterates across active network connection pipes to forcefully push refreshed master lists down onto all 
+     * connected clients except the user who initiated the original save transaction.
+     *
+     * @param requester Distinct active socket pipeline reference belonging to the user making changes.
+     */
     private void broadcastUpdatedOrders(ConnectionToClient requester) {
         try {
             String query = "SELECT * FROM `orders`";
@@ -95,6 +196,10 @@ public class EchoServer extends AbstractServer {
         }
     }
     
+    /**
+     * Broadcasts an explicit refresh notification command to all active clients, forcing visible manager dashboards
+     * to refresh pending request tables in real-time.
+     */
     private void broadcastRefreshRequests() {
         try {
             Thread[] clients = getClientConnections();
@@ -111,6 +216,15 @@ public class EchoServer extends AbstractServer {
         }
     }
 
+    /**
+     * Processes profile validations by searching data schemas (Visitors, Subscribers, Employees, Guides).
+     * Enforces single-session constraints by blocking authentication attempts if the credentials match 
+     * an active session key in {@code activeSessions}.
+     *
+     * @param loginData Array collection packing the identifier types, tags, and credential strings.
+     * @param client    The corresponding active incoming socket instance requesting validation clearance.
+     * @return Formulated {@link LoginResponse} instance carrying success tokens or validation error text descriptions.
+     */
     private LoginResponse handleLogin(ArrayList<String> loginData, ConnectionToClient client) {
         String loginType = loginData.get(0);
 
@@ -225,6 +339,14 @@ public class EchoServer extends AbstractServer {
         return new LoginResponse(false, "Unknown login type.");
     }
 
+    /**
+     * Primary message dispatcher evaluating incoming transport requests from connected client nodes.
+     * Extracted messages are cast into standard transport instances and processed via conditional branches
+     * that map request strings to the appropriate target sub-database processing engines.
+     *
+     * @param msg    Polymorphic packet object received from the socket line.
+     * @param client Unique reference pipe tracing back to the specific requesting source node.
+     */
     @SuppressWarnings("unchecked")
     @Override
     protected void handleMessageFromClient(Object msg, ConnectionToClient client) {
@@ -351,7 +473,6 @@ public class EchoServer extends AbstractServer {
                 boolean result = reservationDB.addToWaitingList(reservation);
                 client.sendToClient(result);
               
-
             } else if (command.equals("CONFIRM_REMINDER")) {
                 ArrayList<Object> data = (ArrayList<Object>) request.getData();
                 int reservationId = (int) data.get(0);
@@ -500,6 +621,7 @@ public class EchoServer extends AbstractServer {
                 int year  = (int) data.get(1);
                 ArrayList<ArrayList<String>> report = reportsDB.getCancellationsReport(month, year);
                 client.sendToClient(report);
+                
             } else if (command.equals("UPDATE_PROFILE")) {
                 logMessage("[REQUEST] " + clientIP + " → UPDATE_PROFILE");
                 ArrayList<Object> data = (ArrayList<Object>) request.getData();
@@ -507,44 +629,45 @@ public class EchoServer extends AbstractServer {
                 int userId  = (int)    data.get(1);
                 boolean result = false;
                 switch (role) {
-                case "VISITOR": {
-                    String firstName = (String) data.get(2);
-                    String lastName  = (String) data.get(3);
-                    String phone     = (String) data.get(4);
-                    String email     = (String) data.get(5);
-                    String idNumber  = (String) data.get(6);
-                    result = managementDB.updateVisitor(userId, firstName, lastName, phone, email, idNumber);
-                    break;
-                }
-                case "SUBSCRIBER": {
-                    String firstName = (String) data.get(2);
-                    String lastName  = (String) data.get(3);
-                    String phone     = (String) data.get(4);
-                    String email     = (String) data.get(5);
-                    String idNumber  = (String) data.get(6);
-                    result = managementDB.updateSubscriber(userId, firstName, lastName, phone, email, idNumber);
-                    break;
-                }
-                case "GUIDE": {
-                    String name     = (String) data.get(2);
-                    String username = (String) data.get(3);
-                    String phone    = (String) data.get(4);
-                    String email    = (String) data.get(5);
-                    String password = (String) data.get(6);
-                    result = managementDB.updateGuide(userId, name, username, phone, email, password);
-                    break;
-                }
-                case "EMPLOYEE": {
-                    String firstName = (String) data.get(2);
-                    String lastName  = (String) data.get(3);
-                    String email     = (String) data.get(4);
-                    String username  = (String) data.get(5);
-                    String password  = (String) data.get(6);
-                    result = managementDB.updateEmployee(userId, firstName, lastName, email, username, password);
-                    break;
-                }
+                    case "VISITOR": {
+                        String firstName = (String) data.get(2);
+                        String lastName  = (String) data.get(3);
+                        String phone     = (String) data.get(4);
+                        String email     = (String) data.get(5);
+                        String idNumber  = (String) data.get(6);
+                        result = managementDB.updateVisitor(userId, firstName, lastName, phone, email, idNumber);
+                        break;
+                    }
+                    case "SUBSCRIBER": {
+                        String firstName = (String) data.get(2);
+                        String lastName  = (String) data.get(3);
+                        String phone     = (String) data.get(4);
+                        String email     = (String) data.get(5);
+                        String idNumber  = (String) data.get(6);
+                        result = managementDB.updateSubscriber(userId, firstName, lastName, phone, email, idNumber);
+                        break;
+                    }
+                    case "GUIDE": {
+                        String name     = (String) data.get(2);
+                        String username = (String) data.get(3);
+                        String phone    = (String) data.get(4);
+                        String email    = (String) data.get(5);
+                        String password = (String) data.get(6);
+                        result = managementDB.updateGuide(userId, name, username, phone, email, password);
+                        break;
+                    }
+                    case "EMPLOYEE": {
+                        String firstName = (String) data.get(2);
+                        String lastName  = (String) data.get(3);
+                        String email     = (String) data.get(4);
+                        String username  = (String) data.get(5);
+                        String password  = (String) data.get(6);
+                        result = managementDB.updateEmployee(userId, firstName, lastName, email, username, password);
+                        break;
+                    }
                 }
                 client.sendToClient(result);
+                
             } else if (command.equals("CHECK_REMINDERS")) {
                 logMessage("[REQUEST] " + clientIP + " → CHECK_REMINDERS");
                 ArrayList<Object> data = (ArrayList<Object>) request.getData();
@@ -554,15 +677,15 @@ public class EchoServer extends AbstractServer {
                 reservationDB.autoCancelUnconfirmedReservations();
                 ArrayList<ArrayList<String>> reminders =
                     reservationDB.getPendingReminders(travelerId, travelerType);
-                // Also check waiting list notifications
+                
                 ArrayList<ArrayList<String>> waitingNotifications =
                     reservationDB.getPendingWaitingListNotifications(travelerId, travelerType);
-                // Combine both into one response — prefix waiting list rows with "WL:"
                 for (ArrayList<String> row : waitingNotifications) {
-                    row.add(0, "WL"); // mark as waiting list notification
+                    row.add(0, "WL");
                     reminders.add(row);
                 }
                 client.sendToClient(reminders);
+                
             } else if (command.equals("REGISTER_VISITOR")) {
                 logMessage("[REQUEST] " + clientIP + " → REGISTER_VISITOR");
                 ArrayList<Object> data = (ArrayList<Object>) request.getData();
@@ -588,6 +711,7 @@ public class EchoServer extends AbstractServer {
                 int waitingListId = (int) request.getData();
                 boolean result = reservationDB.declineWaitingList(waitingListId);
                 client.sendToClient(result);
+                
             } else if (command.equals("GET_WAITING_LIST")) {
                 logMessage("[REQUEST] " + clientIP + " → GET_WAITING_LIST");
                 ArrayList<Object> data = (ArrayList<Object>) request.getData();
@@ -602,6 +726,7 @@ public class EchoServer extends AbstractServer {
                 int waitingListId = (int) request.getData();
                 boolean result = reservationDB.leaveWaitingList(waitingListId);
                 client.sendToClient(result);
+                
             } else if (command.equals("GET_VISITOR_COUNT_REPORT")) {
                 logMessage("[REQUEST] " + clientIP + " → GET_VISITOR_COUNT_REPORT");
                 ArrayList<Object> data = (ArrayList<Object>) request.getData();
@@ -618,6 +743,7 @@ public class EchoServer extends AbstractServer {
                 int year  = (int) data.get(1);
                 ArrayList<ArrayList<String>> report = reportsDB.getVisitorCountAllParks(month, year);
                 client.sendToClient(report);
+                
             } else if (command.equals("GET_CANCELLATIONS_REPORT_BY_PARK")) {
                 logMessage("[REQUEST] " + clientIP + " → GET_CANCELLATIONS_REPORT_BY_PARK");
                 ArrayList<Object> data = (ArrayList<Object>) request.getData();
@@ -626,6 +752,7 @@ public class EchoServer extends AbstractServer {
                 int year   = (int) data.get(2);
                 ArrayList<ArrayList<String>> report = reportsDB.getCancellationsReportByPark(parkId, month, year);
                 client.sendToClient(report);
+                
             } else if (command.equals("CHECK_AVAILABILITY")) {
                 logMessage("[REQUEST] " + clientIP + " → CHECK_AVAILABILITY");
                 ArrayList<Object> data = (ArrayList<Object>) request.getData();
@@ -635,7 +762,7 @@ public class EchoServer extends AbstractServer {
                 ArrayList<Integer> result = reservationDB.getAvailability(parkId, date, time);
                 client.sendToClient(result);
                 
-            }else if (command.equals("CLIENT_EXIT")) {
+            } else if (command.equals("CLIENT_EXIT")) {
                 handleDisconnect(client);
 
             } else {
@@ -649,6 +776,14 @@ public class EchoServer extends AbstractServer {
         }
     }
 
+    /**
+     * Hook method called automatically by the OCSF framework post successful initialization binds on the port.
+     * <p>
+     * Boots secondary database managers, wires atomic notification callbacks, initializes time-sensitive 
+     * background processing daemons (like reminder checks and auto-exit enforcement), and boots a one-minute 
+     * watchdog timer to automatically secure and close the environment if no external connections link up.
+     * </p>
+     */
     @Override
     protected void serverStarted() {
         dbController = DBController.getInstance();
@@ -687,6 +822,12 @@ public class EchoServer extends AbstractServer {
         }, 60000);
     }
 
+    /**
+     * Hook method called automatically by OCSF whenever a fresh client successfully completes socket negotiation.
+     * Cancels the automated one-minute idle shutdown timer if active.
+     *
+     * @param client The structural socket channel connection established for the client.
+     */
     @Override
     protected void clientConnected(ConnectionToClient client) {
         if (connectionTimer != null) {
@@ -702,6 +843,14 @@ public class EchoServer extends AbstractServer {
             clientListCallback.onClientConnected(clientId, ip, host);
         }
     }
+
+    /**
+     * Internal framework pusher targeting individual consumers to deliver real-time system notices
+     * (e.g., automated waiting list spot confirmations).
+     *
+     * @param username Target distinctive customer database authorization identification sequence.
+     * @param message  Data object structure payload transmitted down onto the user channel.
+     */
     private void broadcastToUser(String username, Object message) {
         ConnectionToClient target = activeSessions.get(username);
         if (target != null) {
@@ -714,6 +863,14 @@ public class EchoServer extends AbstractServer {
         }
     }
     
+    /**
+     * Pushes real-time concurrent capacity updates to all active client platforms.
+     * This updates the active terminal count views on monitor screens automatically.
+     *
+     * @param parkId         Unique index referencing the targeted park entity.
+     * @param currentCount   Active total number of visitors currently inside the physical parameters.
+     * @param availableSpots Total vacant spots left before hitting maximum allowed park safety limits.
+     */
     private void broadcastVisitorCount(int parkId, int currentCount, int availableSpots) {
         try {
             ArrayList<Object> payload = new ArrayList<>();
@@ -727,19 +884,30 @@ public class EchoServer extends AbstractServer {
                 try {
                     c.sendToClient(payload);
                 } catch (Exception ex) {
-                    // silent
+                    // silent fallback
                 }
             }
         } catch (Exception e) {
-            // silent
+            // silent fallback
         }
     }
 
+    /**
+     * Hook method triggered automatically by the OCSF architecture when a client drops off gracefully.
+     *
+     * @param client The corresponding connection session item detaching.
+     */
     @Override
     protected void clientDisconnected(ConnectionToClient client) {
         handleDisconnect(client);
     }
 
+    /**
+     * Hook method triggered automatically by OCSF when an active connection experiences unhandled socket errors.
+     *
+     * @param client    The structural network segment error source.
+     * @param exception The root throw item detailing the physical network exception cause.
+     */
     @Override
     protected void clientException(ConnectionToClient client, Throwable exception) {
         handleDisconnect(client);
@@ -748,6 +916,10 @@ public class EchoServer extends AbstractServer {
         }
     }
 
+    /**
+     * Hook method called automatically when the host server terminates its listening loop.
+     * Flushes active resources and safely closes structural relational database connection links.
+     */
     @Override
     protected void serverStopped() {
         if (dbController != null) dbController.closeAll();

@@ -23,24 +23,68 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
 
+/**
+ * Controller class for the {@code MyReservations.fxml} view.
+ * <p>
+ * This class manages the traveler's personal reservation dashboard inside the GoNature system.
+ * It provides a comprehensive matrix showing all historical and future bookings, dynamically colors 
+ * order statuses inside the table cells, and allows users to update parameters (date, time, group volume) 
+ * or delete existing reservations. Front-end constraints ensure users don't reschedule bookings to 
+ * past dates or choose visitor counts exceeding business bounds.
+ * </p>
+ *
+ * @author GoNature Development Team
+ * @version 1.0
+ */
 public class MyReservationsController {
 
+    /** TableView layout container indexing the raw text matrices describing active reservations. */
     @FXML private TableView<ArrayList<String>> reservationsTable;
+    
+    /** Column mapping the unique structural internal identification key of the reservation. */
     @FXML private TableColumn<ArrayList<String>, String> idCol;
+    
+    /** Column mapping the legal operating name of the destination nature park. */
     @FXML private TableColumn<ArrayList<String>, String> parkCol;
+    
+    /** Column mapping the scheduled arrival calendar date string. */
     @FXML private TableColumn<ArrayList<String>, String> dateCol;
+    
+    /** Column mapping the exact timed target entry arrival hour string. */
     @FXML private TableColumn<ArrayList<String>, String> timeCol;
+    
+    /** Column mapping the cumulative headcount joining the visiting party. */
     @FXML private TableColumn<ArrayList<String>, String> visitorsCol;
+    
+    /** Column mapping pricing classification models or order generation categories. */
     @FXML private TableColumn<ArrayList<String>, String> typeCol;
+    
+    /** Column mapping the status state descriptor (e.g., PENDING, CONFIRMED, CANCELLED). */
     @FXML private TableColumn<ArrayList<String>, String> statusCol;
+    
+    /** Column mapping the verification or tracking code generated for entry clearance. */
     @FXML private TableColumn<ArrayList<String>, String> codeCol;
 
+    /** DatePicker input tool regulating adjustments targeting appointment calendar dates. */
     @FXML private DatePicker datePicker;
+    
+    /** ComboBox element providing a fixed range of operating arrival operational timeframes. */
     @FXML private ComboBox<String> timeBox;
+    
+    /** Spinner component tracking group visitor volume headcounts. */
     @FXML private Spinner<Integer> visitorsSpinner;
 
+    /** Local memory data wrapper observing and synchronizing structural modifications made over the table row elements. */
     private ObservableList<ArrayList<String>> tableData = FXCollections.observableArrayList();
 
+    /**
+     * Initializes the view elements automatically upon construction of the FXML scene graph.
+     * <p>
+     * Connects cell factor mapping properties, injects color rules to highlight discrete booking status paths, 
+     * builds default operational hour choices (08:00 to 18:30), and attaches row selection listening monitors 
+     * to populate modification controls when an existing row is clicked.
+     * </p>
+     */
     @FXML
     public void initialize() {
         OrderClient.myReservationsController = this;
@@ -64,28 +108,28 @@ public class MyReservationsController {
                 } else {
                     setText(status);
                     switch (status) {
-                    case "PENDING":
-                        setStyle("-fx-text-fill: #aaaaaa; -fx-font-weight: bold;");
-                        break;
-                    case "CONFIRMED":
-                        setStyle("-fx-text-fill: #4caf50; -fx-font-weight: bold;");
-                        break;
-                    case "CANCELLED":
-                        setStyle("-fx-text-fill: #f44336; -fx-font-weight: bold;");
-                        break;
-                    case "INSIDE":
-                        setStyle("-fx-text-fill: #00bcd4; -fx-font-weight: bold;");
-                        break;
-                    case "EXITED":
-                        setStyle("-fx-text-fill: #9e9e9e; -fx-font-weight: bold;");
-                        break;
-                    case "NO_SHOW":
-                        setStyle("-fx-text-fill: #ff9800; -fx-font-weight: bold;");
-                        break;
-                    default:
-                        setStyle("-fx-text-fill: white;");
-                        break;
-                }
+                        case "PENDING":
+                            setStyle("-fx-text-fill: #aaaaaa; -fx-font-weight: bold;");
+                            break;
+                        case "CONFIRMED":
+                            setStyle("-fx-text-fill: #4caf50; -fx-font-weight: bold;");
+                            break;
+                        case "CANCELLED":
+                            setStyle("-fx-text-fill: #f44336; -fx-font-weight: bold;");
+                            break;
+                        case "INSIDE":
+                            setStyle("-fx-text-fill: #00bcd4; -fx-font-weight: bold;");
+                            break;
+                        case "EXITED":
+                            setStyle("-fx-text-fill: #9e9e9e; -fx-font-weight: bold;");
+                            break;
+                        case "NO_SHOW":
+                            setStyle("-fx-text-fill: #ff9800; -fx-font-weight: bold;");
+                            break;
+                        default:
+                            setStyle("-fx-text-fill: white;");
+                            break;
+                    }
                 }
             }
         });
@@ -105,12 +149,10 @@ public class MyReservationsController {
             }
         });
 
-        // No min/max — validation is done manually in the button handler
         visitorsSpinner.setValueFactory(
             new SpinnerValueFactory.IntegerSpinnerValueFactory(Integer.MIN_VALUE, Integer.MAX_VALUE, 1)
         );
         visitorsSpinner.setEditable(true);
-        // NO focus listener — it was resetting the value before the button handler could read it
 
         reservationsTable.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
@@ -125,7 +167,6 @@ public class MyReservationsController {
                 } else {
                     timeBox.getSelectionModel().selectFirst();
                 }
-                // Set editor text directly — do NOT use setValue() as it triggers clamping
                 visitorsSpinner.getEditor().setText(newVal.get(4));
             }
         });
@@ -133,6 +174,11 @@ public class MyReservationsController {
         refreshTable();
     }
 
+    /**
+     * Determines the pricing and profile classification string corresponding to the current session details.
+     *
+     * @return A category string identifying the user context ("GUIDE", "SUBSCRIBER", or "VISITOR").
+     */
     private String getTravelerType() {
         if (ClientUI.loggedInUser == null) return "VISITOR";
         if ("GUIDE".equals(ClientUI.loggedInUser.getRole())) return "GUIDE";
@@ -140,6 +186,10 @@ public class MyReservationsController {
         return "VISITOR";
     }
 
+    /**
+     * Pulls the history list of bookings from the server for the currently active traveler profile.
+     * Fallback queries are dispatched utilizing default mock parameters if a user context is absent.
+     */
     private void refreshTable() {
         if (ClientUI.loggedInUser != null) {
             int id = ClientUI.loggedInUser.getUserId();
@@ -149,12 +199,24 @@ public class MyReservationsController {
         }
     }
 
+    /**
+     * Re-renders the graphical table item mapping with fresh data arrays supplied from server results.
+     * Called asynchronously from network connection update handlers.
+     *
+     * @param rows Multi-dimensional sequence list containing fresh database reservation fields.
+     */
     public void setReservationsTable(ArrayList<ArrayList<String>> rows) {
         tableData.clear();
         tableData.addAll(rows);
         reservationsTable.setItems(tableData);
     }
 
+    /**
+     * Evaluates modification fields, performs data bounds checks, and forwards an 
+     * adjustment command to the server socket to update the selected reservation.
+     *
+     * @param event Action trigger originating from interacting with the update button.
+     */
     @FXML
     void handleUpdateReservation(ActionEvent event) {
         ArrayList<String> selectedRow = reservationsTable.getSelectionModel().getSelectedItem();
@@ -177,7 +239,6 @@ public class MyReservationsController {
             return;
         }
 
-        // Read raw editor text — this is the only source of truth
         String rawVisitors = visitorsSpinner.getEditor().getText().trim();
         int newVisitors;
         try {
@@ -223,6 +284,12 @@ public class MyReservationsController {
         javafx.application.Platform.runLater(() -> refreshTable());
     }
 
+    /**
+     * Transmits a removal command payload to delete the selected reservation row from the server database registry.
+     * It optimistically changes row elements status markers locally to prevent duplicate click submissions.
+     *
+     * @param event Action trigger event mapping to the reservation delete/cancel button.
+     */
     @FXML
     void handleDeleteReservation(ActionEvent event) {
         ArrayList<String> selectedRow = reservationsTable.getSelectionModel().getSelectedItem();
@@ -249,6 +316,11 @@ public class MyReservationsController {
         ClientUI.client.deleteReservation(reservationId, travelerId, getTravelerType());
     }
 
+    /**
+     * Dispatches an explicit affirmation message responding to a system visit alert verification sequence.
+     *
+     * @param event Action event mapped to the confirmation trigger layout control element.
+     */
     @FXML
     void handleConfirmReminder(ActionEvent event) {
         ArrayList<String> selectedRow = reservationsTable.getSelectionModel().getSelectedItem();
@@ -270,6 +342,11 @@ public class MyReservationsController {
         refreshTable();
     }
 
+    /**
+     * Shifts the primary active stage frame scenery back to the user role's primary dashboard menu view.
+     *
+     * @param event Action navigation interaction trigger signal.
+     */
     @FXML
     void handleGoBack(ActionEvent event) {
         try {
@@ -286,6 +363,13 @@ public class MyReservationsController {
         }
     }
 
+    /**
+     * Internal framework utility helping construct and present standardized structural Alert popups to the customer.
+     *
+     * @param type    Programmatic category setting error or validation alert thresholds.
+     * @param title   Main header label text applied inside the prompt layout banner region.
+     * @param content Dynamic body narrative explaining validation failures or processing updates.
+     */
     private void showAlert(Alert.AlertType type, String title, String content) {
         Alert alert = new Alert(type);
         alert.setTitle(title);
